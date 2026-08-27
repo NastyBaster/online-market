@@ -10,6 +10,7 @@
 - [Інструкція покупцю магазину](docs/CUSTOMER_GUIDE.md)
 - [Обговорення Agent Bridge](docs/AGENT_BRIDGE.md)
 - [Практична інструкція Agent Bridge](docs/BRIDGE_RUNBOOK.md)
+- [Журнал пілота Agent Bridge](docs/BRIDGE_PILOT_LOG.md)
 - [Інструкції AI-агентам](AGENTS.md)
 
 ## Межі MVP
