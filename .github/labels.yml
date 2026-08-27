@@ -1,3 +1,6 @@
+- name: agent:validate
+  color: "5319E7"
+  description: Task contract is waiting for validation
 - name: agent:ready
   color: "1D76DB"
   description: Complete task approved for an implementer

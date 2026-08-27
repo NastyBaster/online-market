@@ -17,9 +17,9 @@ Workflow навмисно не змінює repository settings: це чутли
 2. Architect відкриває **Agent task** через issue form.
 3. Acceptance criteria повинні бути перевірними, а allowed paths — мінімальними.
 4. Якщо рішення глобальне, спочатку створюється ADR у `docs/adr/`.
-5. Власник додає `agent:ready`. Workflow перевіряє контракт.
+5. Власник додає `agent:validate`. Workflow перевіряє контракт і лише після успіху додає `agent:ready`.
 
-Якщо label автоматично видалено, прочитайте bot comment, доповніть issue і повторно додайте `agent:ready`.
+Якщо `agent:ready` не з'явився або автоматично знятий після редагування, прочитайте bot comment, доповніть issue і повторно додайте `agent:validate`. Пряме ручне додавання `agent:ready` workflow відхиляє.
 
 ## 3. Implementer: ручний claim у B0.1
 
@@ -54,7 +54,7 @@ PR має містити `Closes #<number>`. Якщо issue залишаєтьс
 2. GitHub Codex може виконати додатковий review, якщо він доступний та явно запущений.
 3. Браузерний Architect звіряє diff з acceptance criteria.
 4. Власник приймає глобальні та high-risk рішення.
-5. Для змін поверніть issue у `agent:ready` із консолідованим списком. Дозволено один автоматизований repair cycle.
+5. Для змін поверніть issue у `agent:validate` із консолідованим списком. Workflow поверне `agent:ready` лише після успішної перевірки. Дозволено один автоматизований repair cycle.
 6. Merge виконує тільки власник.
 
 ## 6. Blocked і аварійна зупинка

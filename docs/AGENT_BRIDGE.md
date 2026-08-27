@@ -9,7 +9,7 @@ GitHub є єдиним джерелом істини. Агенти не пере
             │ проєктування, ADR, готова issue
             ▼
       GitHub Issues / Project
-            │ agent:ready → claim
+            │ agent:validate → validation → agent:ready → claim
             ▼
         Codex CLI (дешева модель)
             │ branch, code, tests, draft PR
@@ -53,7 +53,7 @@ GitHub є єдиним джерелом істини. Агенти не пере
 
 ### GitHub Actions — Dispatcher/Policy bot
 
-- валідовує контракт issue при `agent:ready`;
+- валідовує контракт issue при `agent:validate` та після редагування ready issue;
 - відхиляє неповну задачу до початку витратної агентної роботи;
 - валідовує структуру PR та зв'язок з issue;
 - запускає незалежні тести;
@@ -68,12 +68,13 @@ GitHub є єдиним джерелом істини. Агенти не пере
 ## Машина станів
 
 ```text
-draft → agent:ready → agent:running → agent:review → done
-                      └──────────────→ agent:blocked
-review changes requested → agent:ready (один контрольований repair cycle)
+draft → agent:validate → agent:ready → agent:running → agent:review → done
+                                         └──────────────→ agent:blocked
+review changes requested → agent:validate (один контрольований repair cycle)
 ```
 
-- `agent:ready`: issue повна і схвалена власником.
+- `agent:validate`: owner передав повний контракт на quarantine-перевірку; CLI ніколи не claim-ить цей стан.
+- `agent:ready`: workflow успішно перевірив повний контракт; issue доступна implementer.
 - `agent:running`: один implementer володіє lease.
 - `agent:review`: draft/ready PR відкритий, реалізація завершена.
 - `agent:blocked`: потрібне рішення, secret або зовнішня зміна; причина записана коментарем.
@@ -81,7 +82,7 @@ review changes requested → agent:ready (один контрольований 
 
 ## Контракт задачі
 
-Issue form у `.github/ISSUE_TEMPLATE/agent-task.yml` вимагає Goal, Context, In scope, Out of scope, Acceptance criteria, Allowed paths, Required checks, Security/data constraints, Dependencies і Human decision. Workflow `.github/workflows/agent-issue-contract.yml` не дозволяє залишити `agent:ready`, якщо обов'язкові секції порожні.
+Issue form у `.github/ISSUE_TEMPLATE/agent-task.yml` вимагає Goal, Context, In scope, Out of scope, Acceptance criteria, Allowed paths, Required checks, Security/data constraints, Dependencies і Human decision. Власник додає лише `agent:validate`; workflow `.github/workflows/agent-issue-contract.yml` додає `agent:ready` тільки після успіху, відхиляє ручне додавання `agent:ready` і повторно перевіряє ready issue після редагування.
 
 ## Контракт результату
 
@@ -126,7 +127,7 @@ Issue form у `.github/ISSUE_TEMPLATE/agent-task.yml` вимагає Goal, Conte
 
 ## Acceptance criteria Bridge MVP
 
-1. Неповна issue не зберігає `agent:ready`.
+1. Неповна issue не зберігає `agent:ready`, а CLI не claim-ить `agent:validate`.
 2. Повна issue однозначно передається CLI без усного контексту.
 3. CLI працює в окремій гілці й відкриває draft PR за шаблоном.
 4. PR contract і незалежні checks видимі в GitHub.

@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Complete every required section. The owner adds `agent:ready` only after review.
+        Complete every required section. The owner adds `agent:validate`; the workflow adds `agent:ready` only after validation succeeds.
         Never include passwords, tokens, customer data, or production secrets.
   - type: textarea
     id: goal
