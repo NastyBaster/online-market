@@ -10,7 +10,7 @@ Record only observed facts. Do not include secrets, customer data, private local
 
 | Run | Issue | Pull request | Duration | Contract result | Repair cycles | Owner effort | Final status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | #4 — Add Agent Bridge pilot log | Pending | Pending | Pending | Pending | Pending | `agent:running` |
+| 1 | #4 — Add Agent Bridge pilot log | #5 | Pending | Pass | Pending | Pending | Merged |
 | 2 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
 | 3 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
 | 4 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
@@ -51,5 +51,5 @@ B0.2 may be proposed only when all of the following are true:
 2. All ten runs have a linked issue and draft or review PR that follow the recorded lifecycle without a manual `agent:ready` bypass.
 3. Every merged run has a passing PR contract check and its required checks recorded in the PR body.
 4. The log records a measured duration, contract result, repair-cycle count, owner-effort value, and final status for all ten runs.
-5. No pilot run exposes secrets, performs production/deployment actions, changes repository settings, or merges automatically.
+5. No pilot run exposes secrets, performs production/deployment actions, or changes repository settings; automatic merge is allowed only for eligible low-risk tasks under an accepted ADR.
 6. The owner reviews the aggregate results and explicitly approves a separate B0.2 decision issue.

@@ -55,16 +55,16 @@ PR має містити `Closes #<number>`. Якщо issue залишаєтьс
 3. Браузерний Architect звіряє diff з acceptance criteria.
 4. Власник приймає глобальні та high-risk рішення.
 5. Для змін поверніть issue у `agent:validate` із консолідованим списком. Workflow поверне `agent:ready` лише після успішної перевірки. Дозволено один автоматизований repair cycle.
-6. Merge виконує тільки власник.
+6. Merge виконує власник, крім bounded low-risk task за [ADR 0001](adr/0001-bounded-autonomous-agent-bridge.md): у нього мають бути всі required checks успішні, жодного pending/failed check, один активний PR і записаний audit trail.
 
 ## 6. Blocked і аварійна зупинка
 
 Implementer ставить `agent:blocked` і залишає один коментар із: blocking condition, already tried, потрібне рішення та безпечний default. Він не публікує secret і не продовжує небезпечну дію.
 
-Для зупинки: зніміть `agent:ready`/`agent:running`, скасуйте workflow, відкличте тимчасовий token, закрийте draft PR і збережіть audit trail. Не видаляйте історію інциденту.
+Для зупинки: зніміть `agent:ready`/`agent:running`, скасуйте workflow, відкличте тимчасовий token, закрийте draft PR і збережіть audit trail. Не видаляйте історію інциденту. Нічний run зупиняється повністю після другого repair cycle, втрати GitHub/auth, неочікуваного оновлення `main` або не чистого worktree.
 
 ## 7. Пілот
 
-Перші 10 задач повинні змінювати лише документацію або GitHub metadata. Вимірюйте час власника, кількість уточнень, contract failures, repair cycles і помилкові зміни. Self-hosted автоматизація дозволяється лише після окремого рішення власника за результатами пілоту.
+Перші 10 задач повинні змінювати лише документацію або GitHub metadata. Вимірюйте час власника, кількість уточнень, contract failures, repair cycles і помилкові зміни. Self-hosted автоматизація дозволяється лише після окремого рішення власника за результатами пілоту. Bounded night run має concurrency 1, максимум 3 задачі, 90 хвилин на задачу й максимум 2 repair cycles; усі comments містять run ID.
 
 Записуйте кожен run у [журналі пілота Agent Bridge](BRIDGE_PILOT_LOG.md). До B0.2 переходять лише після виконання його вимірюваних exit criteria та окремого рішення власника.

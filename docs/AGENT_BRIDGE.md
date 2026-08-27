@@ -20,7 +20,7 @@ GitHub є єдиним джерелом істини. Агенти не пере
    браузерний Codex / власник: acceptance
             │
             ▼
-        власник виконує merge
+        owner merge або bounded low-risk auto-merge
 ```
 
 ## Ролі
@@ -42,14 +42,14 @@ GitHub є єдиним джерелом істини. Агенти не пере
 - працює в `agent/<issue>-<slug>`;
 - читає `AGENTS.md`, змінює лише дозволений scope, запускає checks;
 - відкриває draft PR за шаблоном і переводить issue у `agent:review`;
-- не merge-ить і не працює з production secrets.
+- не працює з production secrets; може merge-ити лише eligible low-risk PR за [ADR 0001](adr/0001-bounded-autonomous-agent-bridge.md) після всіх required checks.
 
 ### Власник — Product owner і Security authority
 
 - приймає глобальні рішення та ADR;
 - контролює credentials, billing, DNS і production;
 - погоджує high-risk задачі;
-- приймає або відхиляє результат і виконує merge.
+- приймає глобальні рішення, high-risk work і merge поза bounded low-risk policy.
 
 ### GitHub Actions — Dispatcher/Policy bot
 
@@ -97,7 +97,7 @@ Issue form у `.github/ISSUE_TEMPLATE/agent-task.yml` вимагає Goal, Conte
 - allowlist команд та директорій;
 - жодних secrets у fork PR;
 - timeout, concurrency limit, lease і audit trail;
-- deployment, production migration і merge тільки з human approval.
+- deployment, production migration і high-risk merge тільки з human approval; bounded low-risk merge регулює [ADR 0001](adr/0001-bounded-autonomous-agent-bridge.md).
 
 ## Етапи реалізації
 
@@ -132,5 +132,5 @@ Issue form у `.github/ISSUE_TEMPLATE/agent-task.yml` вимагає Goal, Conte
 3. CLI працює в окремій гілці й відкриває draft PR за шаблоном.
 4. PR contract і незалежні checks видимі в GitHub.
 5. Власник може зупинити процес, не видаючи production secrets.
-6. Жоден агент або бот не може автоматично merge у `main`.
+6. Жоден агент або бот не може автоматично merge у `main`, крім eligible low-risk task за accepted ADR і лише після всіх required checks.
 7. Архітектурне рішення відтворюється з issue/ADR/PR без історії чатів.
