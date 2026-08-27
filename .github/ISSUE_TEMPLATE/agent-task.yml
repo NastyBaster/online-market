@@ -1,0 +1,83 @@
+name: Agent task
+description: A complete work contract for Codex CLI
+title: "[Agent] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Complete every required section. The owner adds `agent:validate`; the workflow adds `agent:ready` only after validation succeeds.
+        Never include passwords, tokens, customer data, or production secrets.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One observable outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Relevant decisions, links, and current behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: in-scope
+    attributes:
+      label: In scope
+      description: Exact work included in this issue.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: Explicitly excluded work.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: A testable checklist.
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
+  - type: textarea
+    id: paths
+    attributes:
+      label: Allowed paths
+      description: Files or directories the implementer may change.
+      placeholder: "- docs/..."
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Required checks
+      description: Exact commands or manual checks.
+      placeholder: "- `git diff --check`"
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and data constraints
+      description: Secrets, personal data, permissions, migrations, and deployment restrictions.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Blocking issues or write `None`.
+    validations:
+      required: true
+  - type: textarea
+    id: human-decision
+    attributes:
+      label: Human decision required
+      description: Decisions reserved for the owner, or write `None`.
+    validations:
+      required: true

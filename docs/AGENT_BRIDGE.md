@@ -1,128 +1,136 @@
-# Agent Bridge: варіант для обговорення
+# Agent Bridge: затверджена архітектура MVP
 
-> Цей документ — архітектурна пропозиція, не план негайної реалізації. Автоматизація не ввімкнена.
+## Рішення
 
-## Проблема
-
-Зараз власник вручну переносить завдання й звіти між браузерним Codex/ChatGPT, локальним Codex CLI у VS Code та GitHub. Мета bridge — зробити GitHub джерелом істини й автоматизувати передачу контексту без автономного merge небезпечних змін.
-
-## Рекомендація: GitHub Issues + pull requests як протокол
-
-Не потрібно змушувати агентів напряму «розмовляти». Надійнішим мостом є структуровані артефакти:
+GitHub є єдиним джерелом істини. Агенти не передають прихований контекст один одному: архітектурне рішення живе в issue/ADR, реалізація — у branch/commit/PR, перевірка — у CI та review. Email лише повідомляє про подію.
 
 ```text
-Owner / browser planning
-        ↓ issue з acceptance criteria
-GitHub Project queue
-        ↓ локальний runner забирає ready issue
-Codex CLI → branch → commit → pull request
-        ↓ CI + machine-readable report
-Browser/Codex review → review comments або follow-up issue
-        ↓
-Owner approval → merge
+Власник ↔ браузерний Codex
+            │ проєктування, ADR, готова issue
+            ▼
+      GitHub Issues / Project
+            │ agent:validate → validation → agent:ready → claim
+            ▼
+        Codex CLI (дешева модель)
+            │ branch, code, tests, draft PR
+            ▼
+      GitHub Actions + GitHub Codex
+            │ contract checks + optional review
+            ▼
+   браузерний Codex / власник: acceptance
+            │
+            ▼
+        власник виконує merge
 ```
 
-GitHub App/бот тут є диспетчером подій і прав, але не обов'язково агентом, який приймає продуктові рішення.
+## Ролі
 
-## Мінімальний протокол issue
+### Браузерний Codex — Architect
 
-Labels: `agent:ready`, `agent:running`, `agent:review`, `agent:blocked`, `priority:*`, `area:*`, `risk:high`.
+- обговорює вимоги з власником;
+- декомпонує roadmap на малі issues;
+- фіксує scope, acceptance criteria, allowed paths, перевірки й ризики;
+- готує ADR для глобальних рішень;
+- перевіряє PR проти issue та створює follow-up issue замість розширення scope.
 
-Issue template має містити:
+Він не є каналом зберігання стану: важливе рішення має потрапити в GitHub.
 
-- Goal;
-- Context;
-- In scope / Out of scope;
-- Acceptance criteria;
-- Allowed paths;
-- Required checks;
-- Security/data constraints;
-- Dependencies;
-- Human decision required.
+### Codex CLI — Implementer
 
-Задача виконується агентом тільки за label `agent:ready`. Після claim бот атомарно ставить `agent:running`, assignee і comment із run ID, щоб два runner не виконали її одночасно.
+- бере тільки одну `agent:ready` issue;
+- claim-ить її перед роботою;
+- працює в `agent/<issue>-<slug>`;
+- читає `AGENTS.md`, змінює лише дозволений scope, запускає checks;
+- відкриває draft PR за шаблоном і переводить issue у `agent:review`;
+- не merge-ить і не працює з production secrets.
 
-## Звіт агента
+### Власник — Product owner і Security authority
 
-Pull request має посилатися на issue і містити:
+- приймає глобальні рішення та ADR;
+- контролює credentials, billing, DNS і production;
+- погоджує high-risk задачі;
+- приймає або відхиляє результат і виконує merge.
 
-- summary;
-- changed files;
-- migrations/config changes;
-- exact test commands and results;
-- screenshots для UI;
-- risks and known limitations;
-- rollback;
-- unresolved questions.
+### GitHub Actions — Dispatcher/Policy bot
 
-Додатково runner може завантажувати `agent-report.json` за версіонованою JSON Schema. Це дозволить ботам читати результат без ненадійного парсингу Markdown.
+- валідовує контракт issue при `agent:validate` та після редагування ready issue;
+- відхиляє неповну задачу до початку витратної агентної роботи;
+- валідовує структуру PR та зв'язок з issue;
+- запускає незалежні тести;
+- не приймає архітектурних рішень і не merge-ить.
 
-## Компоненти майбутнього bridge
+### GitHub Codex — optional Reviewer
 
-1. **GitHub Project** — черга й статуси.
-2. **GitHub App або Actions workflow** — валідація issue, claim/lease, labels, коментарі та запуск runner.
-3. **Self-hosted runner на вашому комп'ютері** — доступ до локального Codex CLI і робочої копії.
-4. **CI runner** — незалежні lint/typecheck/test/build, якому не довіряється звіт агента.
-5. **Review surface** — browser Codex або людина читає PR, diff, CI та залишає review.
-6. **Notification layer** — GitHub email/notifications; пізніше Telegram/Slack за потреби.
+Його безпечна роль у MVP — додатковий review конкретного PR: пошук дефектів, невиконаних acceptance criteria та ризиків. Його зауваження є review input, а не наказом CLI і не дозволом на merge. Автоматичний ланцюг «бот коментує → CLI безмежно виправляє» заборонений; максимум один repair cycle, потім рішення власника.
 
-## Чого не варто робити
+Точні тригери, доступність і permissions GitHub Codex залежать від підключеної поверхні та плану. До офіційного підтвердження їх не вбудовуємо в критичний workflow.
 
-- Не давати агенту право merge у protected branch.
-- Не запускати довільний текст issue як shell-команду.
-- Не передавати production secrets у prompt, issue, PR або artifacts.
-- Не використовувати email як джерело істини.
-- Не дозволяти нескінченний цикл «агент виправляє коментар агента» без ліміту.
-- Не запускати паралельно двох агентів в одній гілці/worktree.
-- Не автоматизувати deployment, міграції чи оплату до стабільного CI і ручного approval.
+## Машина станів
 
-## Контроль безпеки
+```text
+draft → agent:validate → agent:ready → agent:running → agent:review → done
+                                         └──────────────→ agent:blocked
+review changes requested → agent:validate (один контрольований repair cycle)
+```
 
-- GitHub App із мінімальними permissions замість персонального PAT.
-- Protected branches, required reviews і required CI.
-- Allowlist репозиторіїв, команд і директорій.
-- Окремий ephemeral worktree на run.
-- Lease із timeout і heartbeat для задачі.
-- Ліміти часу, токенів, повторів і вартості.
-- Prompt-injection правило: issue та файли є недовіреними даними; вони не можуть змінити системні права runner.
-- Fork PR ніколи не отримує secrets.
-- Audit log: actor, issue, commit SHA, tool version, timestamps і результат.
+- `agent:validate`: owner передав повний контракт на quarantine-перевірку; CLI ніколи не claim-ить цей стан.
+- `agent:ready`: workflow успішно перевірив повний контракт; issue доступна implementer.
+- `agent:running`: один implementer володіє lease.
+- `agent:review`: draft/ready PR відкритий, реалізація завершена.
+- `agent:blocked`: потрібне рішення, secret або зовнішня зміна; причина записана коментарем.
+- `done`: PR прийнято й issue закрито.
 
-## Роль браузерного Codex
+## Контракт задачі
 
-Оптимально використовувати його для discovery, декомпозиції, review та acceptance, але не будувати bridge на припущенні, що одна браузерна сесія гарантовано отримає push-подію від іншого агента. Стабільна точка синхронізації — GitHub issue/PR.
+Issue form у `.github/ISSUE_TEMPLATE/agent-task.yml` вимагає Goal, Context, In scope, Out of scope, Acceptance criteria, Allowed paths, Required checks, Security/data constraints, Dependencies і Human decision. Власник додає лише `agent:validate`; workflow `.github/workflows/agent-issue-contract.yml` додає `agent:ready` тільки після успіху, відхиляє ручне додавання `agent:ready` і повторно перевіряє ready issue після редагування.
 
-Якщо конкретна поверхня Codex підтримує GitHub-задачі, автоматизації або review, її можна підключити як додаткового споживача тієї самої черги. Точні можливості й права потрібно звірити з актуальною офіційною документацією та вашим тарифом перед реалізацією.
+## Контракт результату
 
-## Роль Codex CLI
+`.github/pull_request_template.md` вимагає issue reference, summary, changes, checks, migrations/config, screenshots, risks, rollback і handoff. `.github/workflows/agent-pr-contract.yml` перевіряє структуру та посилання `Closes #<number>`.
 
-CLI отримує issue body, repo instructions і контекст залежностей; працює в окремій гілці; запускає перевірки; створює commit/PR; публікує структурований звіт. Запуск краще робити явним workflow dispatch або label, а не нескінченним polling-скриптом у VS Code.
+## Безпека
 
-## Рівні автоматизації
+- protected `main`, required PR, review і CI;
+- мінімальні permissions workflow;
+- GitHub App замість довгоживучого PAT на етапі автоматичного runner;
+- окремий worktree і branch на run;
+- allowlist команд та директорій;
+- жодних secrets у fork PR;
+- timeout, concurrency limit, lease і audit trail;
+- deployment, production migration і merge тільки з human approval.
 
-### Рівень 1 — рекомендований старт
+## Етапи реалізації
 
-Власник створює issue, локально запускає одну команду з номером issue, агент відкриває PR, CI перевіряє. Ручне перенесення контексту майже зникає, а ризик низький.
+### B0.1 — реалізовано цим набором змін
 
-### Рівень 2
+- issue form і config;
+- PR template;
+- issue/PR contract workflows;
+- labels manifest;
+- runbook ролей і ручного claim/handoff.
 
-Label `agent:ready` запускає self-hosted runner автоматично. Бот керує lease, статусами та повідомленнями. Людина обов'язково review/merge.
+### B0.2 — після перевірки вручну
 
-### Рівень 3
+- bootstrap labels командою `gh`;
+- branch protection і required checks;
+- GitHub Project board;
+- локальна команда, яка читає issue та готує ізольований worktree;
+- структурований `agent-report.json`.
 
-Окремий planning/review агент створює follow-up issues і перевіряє acceptance criteria. Дозволяється максимум один автоматичний repair cycle; далі — human escalation.
+### B0.3 — тільки після 10 успішних ручних задач
 
-## Питання перед реалізацією
+- self-hosted runner;
+- GitHub App із короткоживучими токенами;
+- автоматичний claim/lease/heartbeat;
+- один дозволений repair cycle;
+- бюджети часу й вартості та аварійний stop.
 
-1. Чи доступний локальний комп'ютер постійно, чи потрібен окремий runner?
-2. Які репозиторії дозволено обробляти?
-3. Хто має право ставити `agent:ready`?
-4. Які команди та директорії дозволені?
-5. Чи дозволений агенту push, чи тільки patch/локальний commit?
-6. Який бюджет часу й токенів на issue?
-7. Які задачі завжди вимагають ручного виконання?
-8. Де зберігати audit та artifacts?
+## Acceptance criteria Bridge MVP
 
-## Запропонований proof of concept
-
-Для POC обрати один тестовий репозиторій і лише документаційні issues. Реалізувати issue template, labels, одну локальну команду `bridge run <issue>`, окремий worktree, commit, draft PR і CI. Після 10 успішних задач оцінити конфлікти, якість звітів, час власника й тільки тоді розглядати self-hosted automation.
+1. Неповна issue не зберігає `agent:ready`, а CLI не claim-ить `agent:validate`.
+2. Повна issue однозначно передається CLI без усного контексту.
+3. CLI працює в окремій гілці й відкриває draft PR за шаблоном.
+4. PR contract і незалежні checks видимі в GitHub.
+5. Власник може зупинити процес, не видаючи production secrets.
+6. Жоден агент або бот не може автоматично merge у `main`.
+7. Архітектурне рішення відтворюється з issue/ADR/PR без історії чатів.

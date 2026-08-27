@@ -1,0 +1,21 @@
+- name: agent:validate
+  color: "5319E7"
+  description: Task contract is waiting for validation
+- name: agent:ready
+  color: "1D76DB"
+  description: Complete task approved for an implementer
+- name: agent:running
+  color: "FBCA04"
+  description: Task is claimed by one implementer
+- name: agent:review
+  color: "0E8A16"
+  description: Implementation is ready for review
+- name: agent:blocked
+  color: "B60205"
+  description: Human decision or external change is required
+- name: risk:high
+  color: "D93F0B"
+  description: Requires explicit owner review
+- name: area:bridge
+  color: "5319E7"
+  description: Agent Bridge process or automation
