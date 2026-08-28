@@ -1,5 +1,7 @@
 # Agent Bridge Runbook
 
+Short definitions for the lifecycle terms in this document are in the [Agent Bridge glossary](BRIDGE_GLOSSARY.md).
+
 ## 1. Одноразове налаштування власником
 
 1. Створіть labels із `.github/labels.yml` у GitHub repository settings або через `gh`.
