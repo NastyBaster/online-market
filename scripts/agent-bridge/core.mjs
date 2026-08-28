@@ -38,8 +38,10 @@ export async function runOnce({ adapter, root, config, id = runId(), now = () =>
       });
       const result = await Promise.race([adapter.runCodex(promptFor(current, id), worktree), deadline]);
       clearTimeout(deadlineTimer);
-      await adapter.writeAudit(root, id, { runId: id, issue: issue.number, branch, outcome: sanitize(result), limits: config });
-      await adapter.handoff(issue.number, id, branch);
+      const handoffStatus = await adapter.getHandoffStatus?.(branch);
+      if (!handoffStatus?.ready) throw new Error(handoffStatus?.reason || `handoff requires exactly one open pull request for ${branch}`);
+      await adapter.writeAudit(root, id, { runId: id, issue: issue.number, branch, pullRequest: handoffStatus.number, outcome: sanitize(result), limits: config });
+      await adapter.handoff(issue.number, id, branch, handoffStatus.number);
       const mergeStatus = await adapter.getMergeStatus?.(branch);
       const autoMerged = autoMergeAllowed({ ...mergeStatus, autoMerge: config.autoMerge });
       if (autoMerged) await adapter.mergePR(mergeStatus.number);
