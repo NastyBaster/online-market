@@ -125,6 +125,14 @@ Issue form у `.github/ISSUE_TEMPLATE/agent-task.yml` вимагає Goal, Conte
 - один дозволений repair cycle;
 - бюджети часу й вартості та аварійний stop.
 
+## Parent/child execution contract
+
+The parent owns discovery, claim, run ID, lock, worktree, prompt, timeout, changed-path and check validation, commit, push, pull request, labels, check polling, policy-gated merge, closure verification, cleanup, and audit. The child owns only implementation in the supplied worktree and a structured completion summary.
+
+The parent prompt includes scoped claim context with the run ID, issue, assignee, branch, worktree, allowed paths, and `parentClaimed: true`. A child may continue an `agent:running` issue only with that matching context; it cannot use another running issue as authorization. A child never creates commits, pushes, pull requests, changes labels, merges, or performs production operations.
+
+The parent emits sanitized phase and heartbeat events and persists checkpoints. A child with no changes is an explicit blocked outcome, not a handoff.
+
 ## Acceptance criteria Bridge MVP
 
 1. Неповна issue не зберігає `agent:ready`, а CLI не claim-ить `agent:validate`.

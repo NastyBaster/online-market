@@ -78,6 +78,27 @@ Copy this template for each completed run and replace pending fields only with o
 
 ## Measurable exit criteria for B0.2
 
+### Incident — live glossary run blocked
+
+- Session: `session-20260828-125831`
+- Issue: #16
+- Run: `night-20260828125958094-812956`
+- Result: blocked before commit because the child exited without changes, push, or PR; the repaired PR gate found zero matching open PRs.
+- Evidence: sanitized audit report retained locally; Task 16 worktree retained clean at `de40bcd`.
+- Root cause: the parent/child contract did not pass authenticated claim context and the parent incorrectly relied on the child to produce GitHub lifecycle artifacts. Child output and exit code were not persisted, and no progress/heartbeat events were streamed.
+- Follow-up: repair issue #17 separates child implementation from parent lifecycle ownership; the Task 16 retry remains pending until that repair is merged.
+
+### Repair run — parent-owned lifecycle contract
+
+- Issue: #17
+- Pull request: Pending
+- Scope: local Agent Bridge orchestration, tests, instructions, and pilot documentation
+- Lifecycle: `agent:validate` → `agent:ready` → `agent:running` → `agent:review` → `done`
+- Contract validation: Pass
+- Root cause addressed: the child receives scoped pre-claim context and only edits the supplied worktree; the parent validates, commits, pushes, creates the PR, transitions review, polls checks, merges, verifies closure, cleans, and audits.
+- Validation: 12 bridge tests, Node syntax checks, modified-script doctor, dry-run no-mutation, allowlist, conflict-marker, and secret-pattern scans passed.
+- Final status: Pending merge
+
 B0.2 may be proposed only when all of the following are true:
 
 1. The summary table has ten completed pilot runs, each limited to documentation or GitHub metadata.
