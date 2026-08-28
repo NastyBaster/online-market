@@ -83,6 +83,8 @@ The local orchestrator reports `handoff` only after it finds exactly one open pu
 
 The parent owns the lifecycle after child exit: inspect the supplied worktree, validate changed paths and checks, create the commit, push, create the complete PR, poll checks, merge only under policy, verify closure, and clean only a verified-clean worktree. The child only edits allowed paths and returns a structured completion summary. A matching claim context permits the child to continue an already claimed `agent:running` issue; it does not authorize any unrelated issue.
 
+Low-risk documentation auto-merge uses two independent allowlists. Repository policy permits only normalized `README.md` and Markdown files under `docs/` (excluding `docs/adr/`); the issue contract must also permit every actual changed path. Empty, absolute, traversal, deleted, renamed, binary, symlink, submodule, or mode-only changes and `risk:high` labels remain ineligible. Either layer can veto the merge.
+
 ## 9. Local troubleshooting checklist
 
 Use this checklist only for the local pilot. Do not paste tokens, secrets, or private paths into issue comments, PRs, or audit notes. Start every recovery by stopping the active local command with `Ctrl+C`, recording the run ID and observed error, and preserving the worktree and `.agent-bridge/runs/` audit report.
