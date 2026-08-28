@@ -125,6 +125,25 @@ Copy this template for each completed run and replace pending fields only with o
 - Final status: Running
 - Lessons learned: Pending
 
+### Run 5 — final protected Agent Bridge live verification
+
+- Issue: #34
+- Run ID: `night-20260828204233243-489081`
+- Pull request: Pending
+- Scope: Agent Bridge pilot log only
+- Lifecycle: observed `agent:running`; `agent:review` and `done` remain pending parent-owned lifecycle completion
+- Contract validation: Pending parent validation
+- Started (UTC): 2026-08-28T20:43:04.238Z
+- Finished (UTC): Pending
+- Duration: Pending
+- Repair cycles: Pending
+- Owner effort: Pending
+- Checks: `git diff --check` passed; conflict-marker scan found no markers; changed-path allowlist passed with only `docs/BRIDGE_PILOT_LOG.md`; relative Markdown link validation passed (0 links); `npm run test:bridge` passed (13 tests). Agent PR contract is pending parent PR creation. `npm run bridge:doctor` did not pass because GitHub CLI authentication is invalid; the main-protection API was unavailable and the worktree is intentionally not clean-main while this child change is present.
+- Merge result: Pending
+- Cleanup result: Pending
+- Final status: Running
+- Lessons learned: Pending
+
 B0.2 may be proposed only when all of the following are true:
 
 1. The summary table has ten completed pilot runs, each limited to documentation or GitHub metadata.
