@@ -106,6 +106,25 @@ Copy this template for each completed run and replace pending fields only with o
 - Validation: 12 bridge tests, Node syntax checks, modified-script doctor, dry-run no-mutation, allowlist, conflict-marker, and secret-pattern scans passed.
 - Final status: Pending merge
 
+### Run 4 — final repaired auto-merge verification
+
+- Issue: #22
+- Run ID: `night-20260828194037373-497293`
+- Pull request: Pending
+- Scope: Agent Bridge pilot log only
+- Lifecycle: observed `agent:running`; `agent:review` and `done` pending parent lifecycle completion
+- Contract validation: Pending
+- Started (UTC): Pending
+- Finished (UTC): Pending
+- Duration: Pending
+- Repair cycles: Pending
+- Owner effort: Pending
+- Checks: `git diff --check` passed; conflict-marker scan found no markers; changed-path allowlist passed with only `docs/BRIDGE_PILOT_LOG.md`; relative Markdown link validation passed (0 links); `npm run test:bridge` passed (13 tests). Agent PR contract is pending parent PR creation. `npm run bridge:doctor` could not complete in this child worktree because GitHub CLI authentication is invalid and network access to GitHub is restricted; the required post-merge doctor result remains pending.
+- Merge result: Pending
+- Cleanup result: Pending
+- Final status: Running
+- Lessons learned: Pending
+
 B0.2 may be proposed only when all of the following are true:
 
 1. The summary table has ten completed pilot runs, each limited to documentation or GitHub metadata.
