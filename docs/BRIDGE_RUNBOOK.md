@@ -76,3 +76,41 @@ Use Node.js without external runtime dependencies: `npm run bridge:doctor`, `npm
 For Windows overnight use, first check out a clean `main`, run `npm run bridge:doctor`, then confirm the local values in `.env.example` are appropriate for the bounded pilot. Keep the terminal session available. Do not start `bridge:watch` until the owner has reviewed its configuration. `bridge:once` processes no more than one ready issue; `bridge:watch` stops after the configured task limit or a blocked task and never nests a second watch loop.
 
 Emergency stop (kill switch): press `Ctrl+C`, inspect the issue label and the local `.agent-bridge/runs/` audit report, and keep any worktree that has uncommitted changes for recovery. Never delete such a worktree. The `.agent-bridge/` directory is local and gitignored. Auto-merge remains off unless `BRIDGE_AUTO_MERGE=true`; even then it needs one non-draft, clean PR, a permitted diff, and non-empty successful GitHub checks.
+
+## 9. Local troubleshooting checklist
+
+Use this checklist only for the local pilot. Do not paste tokens, secrets, or private paths into issue comments, PRs, or audit notes. Start every recovery by stopping the active local command with `Ctrl+C`, recording the run ID and observed error, and preserving the worktree and `.agent-bridge/runs/` audit report.
+
+### `gh auth` fails
+
+Run `gh auth status` and verify that the intended GitHub account and repository access are available. Re-authenticate through the GitHub CLI's normal interactive flow only after the owner confirms the account to use. Do not put a token in a command, environment file, issue, or log. When authentication is restored, run `npm run bridge:doctor`; resume only if its GitHub checks pass.
+
+### `main` is dirty
+
+Do not start or resume a run from a dirty `main`. Inspect the changes with `git status --short` and `git diff`, then either finish them in their own branch/PR or ask their owner to resolve them. Do not use reset, checkout, clean, or any command that discards changes as routine recovery. After `main` is clean and current, run `npm run bridge:doctor` again.
+
+### Stale local lock
+
+If the bridge reports that another run owns the repository, first confirm that no `bridge:once`, `bridge:watch`, or Codex process is still active and inspect `.agent-bridge/runs/` for the most recent audit report. A lock is normally released when the process exits. If the process is confirmed stopped and the lock is still present, an operator may remove only the exact local `.agent-bridge/lock` directory, then rerun `npm run bridge:doctor`.
+
+> **Warning:** removing the lock while a run is active can allow two runs to claim work concurrently. Never remove it until the active process has been stopped and verified absent.
+
+### Orphaned worktree
+
+List worktrees with `git worktree list` and inspect the candidate worktree with `git -C <worktree-path> status --short`. Preserve any worktree with changes and associate it with its issue, branch, and run ID. If it is clean, first decide whether its branch or PR is still needed; leave it in place until that decision is recorded.
+
+> **Warning:** removing a worktree or deleting its branch is destructive when it contains uncommitted work or is still needed for review. Do not perform cleanup automatically; use Git's documented worktree removal only after the owner confirms the exact clean target.
+
+### Issue stuck in `agent:running`
+
+Check the issue assignee, run comment, branch, draft PR, and matching local audit report. If the implementer is still running, do not take over the issue. If the run has stopped, preserve its worktree and add one factual comment describing the blocking condition, what was checked, and the safe next step. The owner or authorized operator should then move the issue to `agent:blocked` for a decision, or to `agent:review` only when a valid PR and required checks exist. Never add `agent:ready` directly to bypass the contract workflow.
+
+### GitHub checks fail
+
+Open the failed check and identify whether it is a contract, documentation, or environment failure. Keep the PR and its failing logs as the audit trail; do not merge, force-push, or disable required checks. For an in-scope fix, use the single permitted repair cycle; otherwise mark the issue blocked with the failure summary and required owner decision. Resume review only after all required checks are successful and no required check is pending.
+
+### Emergency stop and safe resume
+
+For an emergency stop, press `Ctrl+C`, stop any active bridge command, and do not start another run. Preserve the worktree, audit report, issue state, PR, and failed checks. Remove `agent:ready` or `agent:running` only through the authorized GitHub issue transition, cancel a GitHub workflow only when it is the affected run, and leave the incident history intact.
+
+Before resuming, confirm that authentication works, `main` is clean, no active run owns the lock, the intended issue state is accurate, and `npm run bridge:doctor` passes. Start with the default dry run (`npm run bridge:once -- --dry-run`) and have the owner review the result before any bounded non-dry-run execution. A resume never authorizes production operations, secrets, direct pushes to `main`, or automatic cleanup.
