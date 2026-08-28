@@ -12,7 +12,7 @@ Record only observed facts. Do not include secrets, customer data, private local
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | #4 — Add Agent Bridge pilot log | #5 | Pending | Pass | Pending | Pending | Merged |
 | 2 | #10 — Verify Agent Bridge orchestrator dry-run invariants | Pending | Pending | Pass | 0 | Pending | Review |
-| 3 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
+| 3 | #11 — Add Agent Bridge troubleshooting checklist | #13 | 2m 43.105s | Pass | 1 | Pending | Merged |
 | 4 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
 | 5 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
 | 6 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
@@ -59,6 +59,22 @@ Copy this template for each completed run and replace pending fields only with o
 - Final status: Review
 - Checks: `npm run test:bridge` (9 passing); `npm run bridge:doctor` (pass); `npm run bridge:once -- --dry-run` selected #11 with `wouldClaim: true`; before/after checks confirmed #11 stayed open, unassigned, and `agent:ready`, with no new candidate branch, worktree, commit, pull request, lock, or audit report.
 - Lessons learned: Claim the verification issue before dry-run so the oldest eligible issue is the documentation-only candidate; dry-run intentionally creates neither a lock nor an audit report.
+
+### Run 3 — recover troubleshooting-checklist handoff
+
+- Issue: #11
+- Pull request: #13
+- Scope: documentation-only
+- Lifecycle: `agent:validate` → `agent:ready` → `agent:running` → `agent:review` → `done`
+- Contract validation: Pass
+- Started (UTC): 2026-08-28T07:10:42.520Z
+- Finished (UTC): 2026-08-28T07:13:25.625Z
+- Duration: 2m 43.105s
+- Repair cycles: 1
+- Owner effort: Pending
+- Final status: Merged
+- Checks: `git diff --check`, conflict-marker scan, relative Markdown link validation, changed-path allowlist, and `npm run test:bridge` (9 passing); PR #13 Agent PR contract passed after report-template repair.
+- Lessons learned: A child-agent exit is not a handoff. The orchestrator must verify the branch has exactly one open PR and record the PR-backed transition to `agent:review` before reporting success.
 
 ## Measurable exit criteria for B0.2
 

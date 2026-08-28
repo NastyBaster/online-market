@@ -77,6 +77,10 @@ For Windows overnight use, first check out a clean `main`, run `npm run bridge:d
 
 Emergency stop (kill switch): press `Ctrl+C`, inspect the issue label and the local `.agent-bridge/runs/` audit report, and keep any worktree that has uncommitted changes for recovery. Never delete such a worktree. The `.agent-bridge/` directory is local and gitignored. Auto-merge remains off unless `BRIDGE_AUTO_MERGE=true`; even then it needs one non-draft, clean PR, a permitted diff, and non-empty successful GitHub checks.
 
+## 10. Verified handoff
+
+The local orchestrator reports `handoff` only after it finds exactly one open pull request for the run branch. It records that PR number in the audit report and handoff comment, then moves the issue from `agent:running` to `agent:review`. If either prerequisite fails, it blocks the issue with a sanitized reason and writes the failure audit record; it must not report a successful handoff.
+
 ## 9. Local troubleshooting checklist
 
 Use this checklist only for the local pilot. Do not paste tokens, secrets, or private paths into issue comments, PRs, or audit notes. Start every recovery by stopping the active local command with `Ctrl+C`, recording the run ID and observed error, and preserving the worktree and `.agent-bridge/runs/` audit report.
