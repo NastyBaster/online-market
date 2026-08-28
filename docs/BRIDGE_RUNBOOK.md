@@ -81,6 +81,8 @@ Emergency stop (kill switch): press `Ctrl+C`, inspect the issue label and the lo
 
 The local orchestrator reports `handoff` only after it finds exactly one open pull request for the run branch. It records that PR number in the audit report and handoff comment, then moves the issue from `agent:running` to `agent:review`. If either prerequisite fails, it blocks the issue with a sanitized reason and writes the failure audit record; it must not report a successful handoff.
 
+The parent owns the lifecycle after child exit: inspect the supplied worktree, validate changed paths and checks, create the commit, push, create the complete PR, poll checks, merge only under policy, verify closure, and clean only a verified-clean worktree. The child only edits allowed paths and returns a structured completion summary. A matching claim context permits the child to continue an already claimed `agent:running` issue; it does not authorize any unrelated issue.
+
 ## 9. Local troubleshooting checklist
 
 Use this checklist only for the local pilot. Do not paste tokens, secrets, or private paths into issue comments, PRs, or audit notes. Start every recovery by stopping the active local command with `Ctrl+C`, recording the run ID and observed error, and preserving the worktree and `.agent-bridge/runs/` audit report.
