@@ -10,7 +10,31 @@ export const runId = (now = new Date(), random = Math.random) => `night-${now.to
 export const eligible = (issue) => issue.labels?.some((label) => label.name === 'agent:ready') && !issue.labels?.some((label) => ['agent:running', 'agent:review', 'agent:blocked'].includes(label.name));
 export const sanitize = (value) => String(value).replace(/(?:gh[pousr]_[A-Za-z0-9_-]+|github_pat_[A-Za-z0-9_-]+)/g, '[redacted]').replace(/[A-Za-z]:\\[^\s"']+/g, '[private-path]');
 export function parseConfig(args, env = process.env) { return { ...defaults, dryRun: args.includes('--dry-run') || (env.BRIDGE_DRY_RUN ?? 'true') !== 'false', autoMerge: args.includes('--auto-merge') || env.BRIDGE_AUTO_MERGE === 'true', maxTasks: positiveInteger(env.BRIDGE_MAX_TASKS, defaults.maxTasks), maxRepairCycles: positiveInteger(env.BRIDGE_MAX_REPAIR_CYCLES, defaults.maxRepairCycles, 0), maxTaskMinutes: positiveInteger(env.BRIDGE_MAX_TASK_MINUTES, defaults.maxTaskMinutes), pollSeconds: Math.max(30, positiveInteger(env.BRIDGE_POLL_SECONDS, defaults.pollSeconds)) }; }
-export const autoMergeAllowed = ({ policyEligible, requiredChecksPass, autoMerge, mergeable, clean }) => Boolean(autoMerge && policyEligible && requiredChecksPass && mergeable && clean);
+export function normalizeRepoPath(value) {
+  const raw = String(value ?? '');
+  if (!raw || raw.includes('\0') || /^[\\/]/.test(raw) || /^[A-Za-z]:[\\/]/.test(raw)) return null;
+  const normalized = raw.replaceAll('\\', '/');
+  const parts = normalized.split('/');
+  if (parts.some((part) => !part || part === '.' || part === '..')) return null;
+  return parts.join('/');
+}
+export function issuePathAllowed(filePath, issueAllowedPaths = []) {
+  const normalized = normalizeRepoPath(filePath);
+  return Boolean(normalized && issueAllowedPaths.some((allowed) => { const directory = String(allowed).endsWith('/'); const permitted = normalizeRepoPath(directory ? String(allowed).slice(0, -1) : allowed); return permitted && (directory ? normalized === permitted || normalized.startsWith(`${permitted}/`) : normalized === permitted); }));
+}
+export function repositoryDocumentationPathAllowed(filePath) {
+  const normalized = normalizeRepoPath(filePath);
+  return Boolean(normalized && (normalized === 'README.md' || (/^docs\/(?:[^/]+\/)*[^/]+\.md$/i.test(normalized) && !normalized.startsWith('docs/adr/'))));
+}
+export function documentationPolicyEligible({ files = [], issueAllowedPaths = [], labels = [] }) {
+  if (!files.length || labels.some((label) => (label.name || label) === 'risk:high')) return false;
+  return files.every((file) => {
+    const status = file.status || (file.additions > 0 && file.deletions === 0 ? 'added' : file.additions > 0 ? 'modified' : 'removed');
+    if (!['added', 'modified'].includes(status) || file.previous_filename || file.binary || file.symlink || file.submodule || file.modeChanged || file.patch === null && file.status === 'modified') return false;
+    return repositoryDocumentationPathAllowed(file.path) && issuePathAllowed(file.path, issueAllowedPaths);
+  });
+}
+export const autoMergeAllowed = ({ policyEligible, requiredChecksPass, autoMerge, mergeable, clean, files, issueAllowedPaths, labels }) => Boolean(autoMerge && policyEligible && requiredChecksPass && mergeable && clean && (files ? documentationPolicyEligible({ files, issueAllowedPaths, labels }) : false));
 export const branchFor = (issue) => `agent/${issue.number}-${issue.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'bridge-task'}`;
 
 export async function acquireLock(root, fs = { mkdir, rm }) { const lock = path.join(root, '.agent-bridge', 'lock'); await fs.mkdir(path.dirname(lock), { recursive: true }); try { await fs.mkdir(lock); } catch (error) { if (error?.code === 'EEXIST') throw new Error('another Agent Bridge run already owns this repository'); throw error; } return async () => fs.rm(lock, { recursive: true, force: true }); }
@@ -45,7 +69,7 @@ export async function runOnce({ adapter, root, config, id = runId(), now = () =>
     const changes = await adapter.inspectWorktree(worktree); report.changedPaths = changes.changedPaths || []; emit('validate-changes', { changedFileCount: report.changedPaths.length }); if (!report.changedPaths.length) throw new Error('child produced no changes'); const pathCheck = validateChangedPaths(report.changedPaths, issueAllowedPaths(current)); if (!pathCheck.valid) throw new Error(`out-of-scope changed paths: ${pathCheck.invalid.join(', ')}`); await adapter.validateChanges?.(worktree, report.changedPaths, current);
     emit('run-checks'); report.checks = await adapter.runChecks(worktree, current, report.changedPaths); if (!report.checks.length || report.checks.some((check) => !check.pass)) throw new Error('required local checks failed'); emit('commit'); report.commit = await adapter.commit(worktree, branch, report.changedPaths, `docs: complete Agent Bridge glossary`); emit('push'); await adapter.push(worktree, branch); report.pushed = true;
     emit('create-pr'); const created = await adapter.createPR(current, branch, prBody(current, { commit: report.commit, checks: report.checks.map((check) => check.name), run: id })); emit('verify-pr'); const handoff = await adapter.getHandoffStatus(branch); if (!handoff?.ready || (created?.number && handoff.number !== created.number)) throw new Error(handoff?.reason || 'exactly one matching open pull request is required'); report.pullRequest = handoff.number; emit('transition-review', { pullRequest: report.pullRequest }); await adapter.handoff(current.number, id, branch, report.pullRequest); emit('wait-checks', { pullRequest: report.pullRequest }); const checks = await adapter.waitForChecks(report.pullRequest, config.maxTaskMinutes); report.checks = [...report.checks, ...(checks.checks || [])]; if (!checks.pass) throw new Error('required GitHub checks failed or remained pending');
-    const mergeStatus = await adapter.getMergeStatus(branch); const autoMerged = autoMergeAllowed({ ...mergeStatus, autoMerge: config.autoMerge }); if (autoMerged) { emit('merge', { pullRequest: report.pullRequest }); await adapter.mergePR(report.pullRequest); report.merge = { merged: true, pullRequest: report.pullRequest }; emit('verify-closure'); if (!(await adapter.verifyClosure(current.number))) throw new Error('issue did not close after merge'); emit('cleanup'); report.cleanup = await adapter.cleanup(root, worktree, branch); } else report.merge = { merged: false };
+    const mergeStatus = await adapter.getMergeStatus(branch, current); const autoMerged = autoMergeAllowed({ ...mergeStatus, autoMerge: config.autoMerge, files: mergeStatus.files, issueAllowedPaths: issueAllowedPaths(current), labels: current.labels }); if (autoMerged) { emit('merge', { pullRequest: report.pullRequest }); await adapter.mergePR(report.pullRequest); report.merge = { merged: true, pullRequest: report.pullRequest }; emit('verify-closure'); if (!(await adapter.verifyClosure(current.number))) throw new Error('issue did not close after merge'); emit('cleanup'); report.cleanup = await adapter.cleanup(root, worktree, branch); } else report.merge = { merged: false };
     report.outcome = autoMerged ? 'complete' : 'handoff'; emit('complete', { outcome: report.outcome, autoMerged }); await adapter.writeAudit?.(root, id, report); return { runId: id, outcome: report.outcome, issue: current.number, branch, pullRequest: report.pullRequest, autoMerged, elapsedMs: now() - started };
   } catch (error) { const summary = sanitize(error?.message || error).slice(0, 500); report.outcome = 'blocked'; report.error = summary; emit('blocked', { outcome: report.outcome, error: summary }); try { await adapter.blockIssue(report.issue, `Bridge run ${id} blocked: ${summary}`); } finally { await adapter.writeAudit?.(root, id, report); } return { runId: id, outcome: 'blocked', issue: report.issue, branch, error: summary }; } finally { await release(); }
 }

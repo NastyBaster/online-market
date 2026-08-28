@@ -133,6 +133,8 @@ The parent prompt includes scoped claim context with the run ID, issue, assignee
 
 The parent emits sanitized phase and heartbeat events and persists checkpoints. A child with no changes is an explicit blocked outcome, not a handoff.
 
+Low-risk documentation auto-merge is a two-layer decision: normalized repository policy must permit every changed path, and the issue contract must independently permit every changed path. Repository policy covers `README.md` and Markdown beneath `docs/` except `docs/adr/`; risky metadata and high-risk labels veto auto-merge.
+
 ## Acceptance criteria Bridge MVP
 
 1. Неповна issue не зберігає `agent:ready`, а CLI не claim-ить `agent:validate`.

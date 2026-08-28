@@ -88,6 +88,13 @@ Copy this template for each completed run and replace pending fields only with o
 - Root cause: the parent/child contract did not pass authenticated claim context and the parent incorrectly relied on the child to produce GitHub lifecycle artifacts. Child output and exit code were not persisted, and no progress/heartbeat events were streamed.
 - Follow-up: repair issue #17 separates child implementation from parent lifecycle ownership; the Task 16 retry remains pending until that repair is merged.
 
+### Policy incident follow-up
+
+- Issue: #20
+- Trigger: PR #19 contained only issue-permitted documentation changes, but the parent repository policy used a filename-specific list and rejected `docs/BRIDGE_GLOSSARY.md`.
+- Repair: generalized normalized repository documentation policy with an independent issue-allowlist intersection and conservative metadata/risk rejection.
+- Status: Pending merge and final live verification.
+
 ### Repair run — parent-owned lifecycle contract
 
 - Issue: #17
