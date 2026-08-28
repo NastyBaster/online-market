@@ -68,3 +68,11 @@ Implementer ставить `agent:blocked` і залишає один комен
 Перші 10 задач повинні змінювати лише документацію або GitHub metadata. Вимірюйте час власника, кількість уточнень, contract failures, repair cycles і помилкові зміни. Self-hosted автоматизація дозволяється лише після окремого рішення власника за результатами пілоту. Bounded night run має concurrency 1, максимум 3 задачі, 90 хвилин на задачу й максимум 2 repair cycles; усі comments містять run ID.
 
 Записуйте кожен run у [журналі пілота Agent Bridge](BRIDGE_PILOT_LOG.md). До B0.2 переходять лише після виконання його вимірюваних exit criteria та окремого рішення власника.
+
+## 8. Local orchestrator MVP
+
+Use Node.js without external runtime dependencies: `npm run bridge:doctor`, `npm run bridge:once -- --dry-run`, and `npm run bridge:watch`. Defaults are safe: dry-run is on, auto-merge is off, concurrency is 1, task limit is 3, repair limit is 2, task budget is 90 minutes, and watch polling is at least 30 seconds.
+
+For Windows overnight use, first check out a clean `main`, run `npm run bridge:doctor`, then confirm the local values in `.env.example` are appropriate for the bounded pilot. Keep the terminal session available. Do not start `bridge:watch` until the owner has reviewed its configuration. `bridge:once` processes no more than one ready issue; `bridge:watch` stops after the configured task limit or a blocked task and never nests a second watch loop.
+
+Emergency stop (kill switch): press `Ctrl+C`, inspect the issue label and the local `.agent-bridge/runs/` audit report, and keep any worktree that has uncommitted changes for recovery. Never delete such a worktree. The `.agent-bridge/` directory is local and gitignored. Auto-merge remains off unless `BRIDGE_AUTO_MERGE=true`; even then it needs one non-draft, clean PR, a permitted diff, and non-empty successful GitHub checks.

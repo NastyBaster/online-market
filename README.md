@@ -12,6 +12,7 @@
 - [Практична інструкція Agent Bridge](docs/BRIDGE_RUNBOOK.md)
 - [Журнал пілота Agent Bridge](docs/BRIDGE_PILOT_LOG.md)
 - [ADR автономного Agent Bridge](docs/adr/0001-bounded-autonomous-agent-bridge.md)
+- [Локальний Agent Bridge orchestrator](docs/BRIDGE_RUNBOOK.md#8-local-orchestrator-mvp)
 - [Інструкції AI-агентам](AGENTS.md)
 
 ## Межі MVP
