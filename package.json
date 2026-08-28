@@ -1,0 +1,11 @@
+{
+  "name": "online-market-agent-bridge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bridge:doctor": "node scripts/agent-bridge/cli.mjs doctor",
+    "bridge:once": "node scripts/agent-bridge/cli.mjs once",
+    "bridge:watch": "node scripts/agent-bridge/cli.mjs watch",
+    "test:bridge": "node --test tests/agent-bridge/**/*.test.mjs"
+  }
+}
