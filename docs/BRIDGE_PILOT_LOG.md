@@ -11,7 +11,7 @@ Record only observed facts. Do not include secrets, customer data, private local
 | Run | Issue | Pull request | Duration | Contract result | Repair cycles | Owner effort | Final status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | #4 — Add Agent Bridge pilot log | #5 | Pending | Pass | Pending | Pending | Merged |
-| 2 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
+| 2 | #10 — Verify Agent Bridge orchestrator dry-run invariants | Pending | Pending | Pass | 0 | Pending | Review |
 | 3 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
 | 4 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
 | 5 | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
@@ -42,6 +42,23 @@ Copy this template for each completed run and replace pending fields only with o
 - Checks: <exact commands and results>
 - Lessons learned: <observed process improvement or Pending>
 ```
+
+### Run 2 — verify local orchestrator dry-run invariants
+
+- Issue: #10
+- Candidate issue: #11 — Add Agent Bridge troubleshooting checklist
+- Pull request: Pending
+- Scope: documentation-only verification; no candidate execution
+- Lifecycle: `agent:validate` → `agent:ready` → `agent:running` → `agent:review`
+- Contract validation: Pass for #10 and #11
+- Started (UTC): 2026-08-28
+- Finished (UTC): Pending
+- Duration: Pending
+- Repair cycles: 0
+- Owner effort: Pending
+- Final status: Review
+- Checks: `npm run test:bridge` (9 passing); `npm run bridge:doctor` (pass); `npm run bridge:once -- --dry-run` selected #11 with `wouldClaim: true`; before/after checks confirmed #11 stayed open, unassigned, and `agent:ready`, with no new candidate branch, worktree, commit, pull request, lock, or audit report.
+- Lessons learned: Claim the verification issue before dry-run so the oldest eligible issue is the documentation-only candidate; dry-run intentionally creates neither a lock nor an audit report.
 
 ## Measurable exit criteria for B0.2
 
