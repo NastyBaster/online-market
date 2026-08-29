@@ -1,5 +1,6 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { acquireOwnership } from './ownership.mjs';
 
 export const defaults = Object.freeze({ concurrency: 1, maxTasks: 3, maxRepairCycles: 2, maxTaskMinutes: 90, pollSeconds: 30, dryRun: true, autoMerge: false });
 export const batchDefaults = Object.freeze({ maxTasks: 2, maxMinutes: 180, maxTaskCap: 5, concurrency: 1 });
@@ -39,7 +40,7 @@ export function documentationPolicyEligible({ files = [], issueAllowedPaths = []
 export const autoMergeAllowed = ({ policyEligible, requiredChecksPass, autoMerge, mergeable, clean, files, issueAllowedPaths, labels }) => Boolean(autoMerge && policyEligible && requiredChecksPass && mergeable && clean && (files ? documentationPolicyEligible({ files, issueAllowedPaths, labels }) : false));
 export const branchFor = (issue) => `agent/${issue.number}-${issue.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'bridge-task'}`;
 
-export async function acquireLock(root, fs = { mkdir, rm }) { const lock = path.join(root, '.agent-bridge', 'lock'); await fs.mkdir(path.dirname(lock), { recursive: true }); try { await fs.mkdir(lock); } catch (error) { if (error?.code === 'EEXIST') throw new Error('another Agent Bridge run already owns this repository'); throw error; } return async () => fs.rm(lock, { recursive: true, force: true }); }
+export async function acquireLock(root, options = {}) { return acquireOwnership(root, { mode: options.mode || 'batch', runId: options.runId, ...options }); }
 export async function writeAudit(root, id, report, fs = { mkdir, writeFile }) { const target = path.join(root, '.agent-bridge', 'runs', `${id}.json`); await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, `${JSON.stringify(JSON.parse(sanitize(JSON.stringify(report))), null, 2)}\n`); }
 export async function writeBatchAudit(root, id, report, fs = { mkdir, writeFile }) { const target = path.join(root, '.agent-bridge', 'batches', `${id}.json`); await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, `${JSON.stringify(JSON.parse(sanitize(JSON.stringify(report))), null, 2)}\n`); }
 
@@ -58,12 +59,17 @@ export function promptFor(issue, id, context = {}) {
 export function prBody(issue, { commit, checks, run }) { return [`## Issue\n\nCloses #${issue.number}`, '## Summary\n\nImplemented by the parent-owned Agent Bridge lifecycle.', `## Changes\n\nChild implementation was validated and committed by run ${run}.`, `## Checks\n\n${checks.map((check) => `- [x] ${check}`).join('\n') || '- [x] Parent validation'}`, '## Migrations and configuration\n\nNone.', '## Screenshots\n\nNone; documentation/tooling change only.', '## Risks and limitations\n\nParent lifecycle operations are fail-closed and scope-limited.', `## Rollback\n\nRevert commit ${commit || 'the implementation commit'}.`, `## Handoff\n\nParent completed commit, push, PR creation, review transition, and check verification for run ${run}.`].join('\n\n'); }
 
 export async function selectOldestEligible(adapter) { const issues = await adapter.listReadyIssues(); return issues.filter(eligible).sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0] ?? null; }
-export async function runOnce({ adapter, root, config, id = runId(), now = () => Date.now(), timeout = setTimeout, progress = () => {}, lockHeld = false }) {
+export async function runOnce({ adapter, root, config, id = runId(), now = () => Date.now(), timeout = setTimeout, progress = () => {}, lockHeld = false, ownership = null, delegated = null }) {
   const report = { runId: id, issue: null, branch: null, phase: 'discover', phases: [], child: null, changedPaths: [], checks: [], commit: null, pushed: false, pullRequest: null, merge: null, cleanup: null, outcome: 'running', startedAt: new Date().toISOString() };
   const emit = (phase, data = {}) => { report.phase = phase; report.phases.push({ phase, at: new Date().toISOString(), ...data }); progress({ runId: id, phase, issue: report.issue, branch: report.branch, ...data }); void adapter.writeAudit?.(root, id, report); };
-  const issue = await selectOldestEligible(adapter); if (!issue) { report.outcome = 'no-eligible-issue'; emit('complete', { outcome: report.outcome }); await adapter.writeAudit?.(root, id, report); return { runId: id, outcome: report.outcome }; }
+  let release = async () => {}; let owned = ownership;
+  if (!config.dryRun && !lockHeld && !owned) owned = await adapter.acquireLock(root, { mode: delegated ? 'batch' : 'once', runId: delegated?.childRunId || id });
+  if (delegated && (!owned?.ownershipToken || delegated.ownershipToken !== owned.ownershipToken || delegated.parentMode !== 'batch')) throw new Error('invalid delegated execution ownership');
+  if (owned && !lockHeld) release = owned.release || owned;
+  const issue = await selectOldestEligible(adapter); if (!issue) { report.outcome = 'no-eligible-issue'; emit('complete', { outcome: report.outcome }); await adapter.writeAudit?.(root, id, report); await release(); return { runId: id, outcome: report.outcome }; }
   report.issue = issue.number; emit('discover', { issue: issue.number }); if (config.dryRun) { report.outcome = 'dry-run'; emit('complete', { outcome: report.outcome, wouldClaim: true }); return { runId: id, outcome: report.outcome, issue: issue.number, wouldClaim: true }; }
-  const release = lockHeld ? async () => {} : await adapter.acquireLock(root); let worktree; let branch;
+  if (lockHeld && !owned) owned = null;
+  let worktree; let branch;
   try {
     const current = await adapter.getIssue(issue.number); if (!eligible(current)) { report.outcome = 'claim-refused'; emit('blocked', { outcome: report.outcome }); return { runId: id, outcome: report.outcome, issue: issue.number }; }
     emit('claim'); await adapter.claimIssue(issue.number); branch = branchFor(current); worktree = adapter.worktreePath(root, branch); report.branch = branch; emit('prepare-worktree'); await adapter.createWorktree(branch, worktree);
@@ -76,4 +82,4 @@ export async function runOnce({ adapter, root, config, id = runId(), now = () =>
     report.outcome = autoMerged ? 'complete' : 'handoff'; emit('complete', { outcome: report.outcome, autoMerged }); await adapter.writeAudit?.(root, id, report); return { runId: id, outcome: report.outcome, issue: current.number, branch, pullRequest: report.pullRequest, autoMerged, elapsedMs: now() - started };
   } catch (error) { const summary = sanitize(error?.message || error).slice(0, 500); report.outcome = 'blocked'; report.error = summary; emit('blocked', { outcome: report.outcome, error: summary }); try { await adapter.blockIssue(report.issue, `Bridge run ${id} blocked: ${summary}`); } finally { await adapter.writeAudit?.(root, id, report); } return { runId: id, outcome: 'blocked', issue: report.issue, branch, error: summary }; } finally { await release(); }
 }
-export async function runWatch({ adapter, root, config, run = runOnce, sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) }) { if (config.concurrency !== 1 || config.pollSeconds < 30) throw new Error('watch requires concurrency 1 and a poll interval of at least 30 seconds'); const results = []; for (let count = 0; count < config.maxTasks; count += 1) { const result = await run({ adapter, root, config }); results.push(result); if (result.outcome === 'blocked') break; if (count + 1 < config.maxTasks) await sleep(config.pollSeconds * 1000); } return results; }
+export async function runWatch({ adapter, root, config, run = runOnce, sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)) }) { if (config.concurrency !== 1 || config.pollSeconds < 30) throw new Error('watch requires concurrency 1 and a poll interval of at least 30 seconds'); const owner = !config.dryRun && adapter.acquireLock ? await adapter.acquireLock(root, { mode: 'watch', runId: runId() }) : null; const results = []; try { for (let count = 0; count < config.maxTasks; count += 1) { const result = await run({ adapter, root, config, lockHeld: Boolean(owner), ownership: owner }); results.push(result); if (result.outcome === 'blocked') break; if (count + 1 < config.maxTasks) await sleep(config.pollSeconds * 1000); } return results; } finally { await owner?.release?.(); } }

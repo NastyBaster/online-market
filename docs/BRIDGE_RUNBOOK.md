@@ -136,3 +136,10 @@ Open the failed check and identify whether it is a contract, documentation, or e
 For an emergency stop, press `Ctrl+C`, stop any active bridge command, and do not start another run. Preserve the worktree, audit report, issue state, PR, and failed checks. Remove `agent:ready` or `agent:running` only through the authorized GitHub issue transition, cancel a GitHub workflow only when it is the affected run, and leave the incident history intact.
 
 Before resuming, confirm that authentication works, `main` is clean, no active run owns the lock, the intended issue state is accurate, and `npm run bridge:doctor` passes. Start with the default dry run (`npm run bridge:once -- --dry-run`) and have the owner review the result before any bounded non-dry-run execution. A resume never authorizes production operations, secrets, direct pushes to `main`, or automatic cleanup.
+# Execution lease repair
+
+`once`, `batch`, and `watch` contend for the same atomic repository execution lease. A live owner blocks every other external entrypoint. Batch-owned internal runs use delegated ownership and must not reacquire the lease. Child processes are registered with PID and process-start identity; the next task waits for prior child cleanup.
+
+Lease heartbeats run within the configured interval and extend the lease. A current lease with a matching live PID is active; an expired lease with a live PID still blocks; an absent or reused PID is only a stale candidate. Malformed owner or child state fails closed. Do not manually delete runtime state without verifying PID/start identity and recording controlled recovery. Emergency stop is to stop the owning entrypoint and preserve the evidence for recovery; process killing is outside the Bridge repair protocol.
+
+The health gate no longer scans all Windows command lines for Bridge-looking text. It selects only owner and registered child PIDs from the snapshot. #42 and #43 remain paused. Any new batch or dry-run attempt requires independent owner authorization.

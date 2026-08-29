@@ -171,7 +171,7 @@ const commandIdentity = (process) => {
 };
 export function classifyBridgeCommand(processRecord) { return commandIdentity({ ...processRecord, executable: processRecord.executable || executableName(processRecord.name), parsedArgs: processRecord.parsedArgs || parseWindowsCommandLine(processRecord.command).args, parseMalformed: processRecord.parseMalformed ?? parseWindowsCommandLine(processRecord.command).malformed }); }
 
-const blockingCategories = new Set(['tracked_task_child', 'bridge_watch', 'ambiguous_bridge_process']);
+const blockingCategories = new Set(['tracked_task_child', 'bridge_watch']);
 const safeRecord = ({ pid, ppid, category, relation, identityMatch, reason }) => ({ pid, parentPid: ppid, category, relation, identityMatch, reason });
 
 export function classifyBridgeProcesses(snapshot, context = {}) {
@@ -193,12 +193,16 @@ export function classifyBridgeProcesses(snapshot, context = {}) {
     }
     const watcherRecord = watcherRecords.find((record) => Number(record.pid) === process.pid);
     if (watcherRecord) { const matches = sameIdentity(process, watcherRecord); return safeRecord({ ...process, category: matches ? 'bridge_watch' : 'stale_pid_record', relation: 'watcher-record', identityMatch: matches, reason: matches ? 'exact Bridge watch entrypoint detected' : 'watcher PID identity mismatch' }); }
-    const identity = commandIdentity(process);
-    if (identity.kind === 'watch') return safeRecord({ ...process, category: 'bridge_watch', relation: 'untracked', identityMatch: null, reason: 'exact Bridge watch entrypoint detected' });
-    if (identity.kind === 'bridge' || identity.kind === 'bridge-like' || identity.kind === 'ambiguous') return safeRecord({ ...process, category: 'ambiguous_bridge_process', relation: 'untracked', identityMatch: null, reason: 'Bridge-like process identity could not be verified' });
+    // Legacy diagnostics may request the old classifier explicitly. Production
+    // health never sets this flag: command text is not an ownership authority.
+    if (context.legacyAmbientClassification) {
+      const identity = commandIdentity(process);
+      if (identity.kind === 'watch') return safeRecord({ ...process, category: 'bridge_watch', relation: 'untracked', identityMatch: null, reason: 'exact Bridge watch entrypoint detected' });
+      if (identity.kind === 'bridge' || identity.kind === 'bridge-like' || identity.kind === 'ambiguous') return safeRecord({ ...process, category: 'ambiguous_bridge_process', relation: 'untracked', identityMatch: null, reason: 'Bridge-like process identity could not be verified' });
+    }
     return safeRecord({ ...process, category: 'unrelated_process', relation: 'untracked', identityMatch: null, reason: 'unrelated process' });
   });
-  const blocking = classified.filter((entry) => blockingCategories.has(entry.category));
+  const blocking = classified.filter((entry) => blockingCategories.has(entry.category) || (context.legacyAmbientClassification && entry.category === 'ambiguous_bridge_process'));
   return { pass: blocking.length === 0, totalProcessCount: processes.length, nullCommandLineCount: processes.filter((entry) => entry.command === null).length, processes: classified, blocking };
 }
 
@@ -214,4 +218,19 @@ export function sanitizedProcessHealth(result) {
     blocking,
     processes
   };
+}
+
+export function classifyRegisteredProcesses(snapshot, { owner, children = [], currentProcess } = {}) {
+  const records = normalizeProcessSnapshot(snapshot); const registered = [];
+  if (owner) registered.push({ ...owner, pid: owner.ownerPid, startTime: owner.ownerStartIdentity, category: 'bridge_owner', reason: 'registered Bridge owner' });
+  for (const child of children) registered.push({ ...child, pid: child.childPid, startTime: child.childStartIdentity, category: 'tracked_task_child', reason: 'registered Bridge child' });
+  const classified = registered.map((entry) => {
+    const process = records.find((candidate) => candidate.pid === entry.pid);
+    if (!process) return { pid: entry.pid, parentPid: null, category: 'missing_registered_process', relation: 'registered-record', identityMatch: false, reason: 'registered process is absent' };
+    const match = entry.startTime == null || process.startTime == null ? null : process.startTime === entry.startTime;
+    return safeRecord({ ...process, category: match === false ? 'stale_pid_record' : entry.category, relation: 'registered-record', identityMatch: match, reason: match === false ? 'registered PID identity mismatch' : entry.reason });
+  });
+  const currentPid = Number(currentProcess?.pid);
+  const blocking = classified.filter((entry) => ['bridge_owner', 'tracked_task_child'].includes(entry.category) && entry.identityMatch !== false && !(entry.category === 'bridge_owner' && entry.pid === currentPid));
+  return { pass: blocking.length === 0, totalProcessCount: records.length, nullCommandLineCount: records.filter((entry) => entry.command === null).length, processes: classified, blocking };
 }

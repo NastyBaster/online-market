@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { classifyBridgeCommand, classifyBridgeProcesses, inspectWindowsProcessSnapshot, normalizeProcessSnapshot, parseWindowsProcessSnapshot, parseWindowsCommandLine, sanitizedProcessHealth, windowsProcessSnapshotArgs } from '../../scripts/agent-bridge/process-health.mjs';
 
 const p = (pid, command, extras = {}) => ({ pid, ppid: extras.ppid ?? 1, name: extras.name ?? 'node.exe', command, startTime: extras.startTime ?? `s-${pid}` });
-const context = { platform: 'win32', currentProcess: { pid: 10, startTime: 's-10' } };
+const context = { platform: 'win32', currentProcess: { pid: 10, startTime: 's-10' }, legacyAmbientClassification: true };
 const category = (command, extras = {}) => classifyBridgeProcesses([p(10, 'node scripts/agent-bridge/cli.mjs batch'), p(20, command, extras)], context);
 
 test('reviewer fixture is an exact blocking watcher', () => { const result = category('node scripts/agent-bridge/cli.mjs watch'); assert.equal(result.pass, false); assert.equal(result.processes[1].category, 'bridge_watch'); assert.equal(result.blocking[0].reason, 'exact Bridge watch entrypoint detected'); });

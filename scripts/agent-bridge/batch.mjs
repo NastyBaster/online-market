@@ -18,7 +18,7 @@ export async function runBoundedBatch({ adapter, root, config, batchId = `batch-
   if (config.dryRun) { const candidate = await selectOldestEligible(adapter); summary.plan = candidate ? [{ issueNumber: candidate.number, title: sanitize(candidate.title || '').slice(0, 160) }] : []; summary.outcome = 'dry_run_complete'; summary.completedAt = new Date().toISOString(); return summary; }
   let release; let primaryError;
   try {
-    release = await adapter.acquireLock(root); emit('batch-lock-acquired');
+    release = await adapter.acquireLock(root, { mode: 'batch', runId: batchId }); emit('batch-lock-acquired');
     while (true) {
       if (summary.attemptedTaskCount >= config.maxTasks) { summary.outcome = 'completed_task_limit'; break; }
       if (now() - started >= config.maxMinutes * 60_000) { summary.outcome = 'completed_time_limit'; break; }
@@ -26,7 +26,9 @@ export async function runBoundedBatch({ adapter, root, config, batchId = `batch-
       const candidate = await selectOldestEligible(adapter);
       if (!candidate) { summary.outcome = 'completed_no_work'; break; }
       emit('start-task', { issue: candidate.number, sequence: summary.attemptedTaskCount + 1 });
-      const task = await runSingle({ adapter, root, config: { ...config, dryRun: false }, lockHeld: true, progress: (event) => emit('task-progress', event) });
+      const owner = typeof release === 'function' ? null : release;
+      const taskRunId = `${batchId}-task-${summary.attemptedTaskCount + 1}`;
+      const task = await runSingle({ adapter, root, id: taskRunId, config: { ...config, dryRun: false }, lockHeld: true, ownership: owner, delegated: owner ? { ownershipToken: owner.ownershipToken, parentMode: 'batch', childRunId: taskRunId, batchId, sequence: summary.attemptedTaskCount + 1 } : null, progress: (event) => emit('task-progress', event) });
       summary.attemptedTaskCount += 1;
       const audit = await adapter.readRunAudit(root, task.runId);
       const entry = { sequence: summary.attemptedTaskCount, runId: task.runId, issueNumber: task.issue ?? candidate.number, prNumber: task.pullRequest ?? null, taskOutcome: task.outcome, merged: Boolean(audit?.merge?.merged), cleanup: audit?.cleanup?.cleanup || null, elapsedMs: task.elapsedMs ?? null };
@@ -36,7 +38,7 @@ export async function runBoundedBatch({ adapter, root, config, batchId = `batch-
       try { await persist(); } catch (error) { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'write-batch-audit'; summary.sanitizedError = sanitize(error?.message || error); break; }
     }
   } catch (error) { primaryError = error; summary.outcome = !release && summary.attemptedTaskCount === 0 ? 'stopped_health_check' : 'stopped_task_failed'; summary.stopPhase = summary.stopPhase || (!release ? 'acquire-batch-lock' : 'batch-execution'); summary.sanitizedError = sanitize(error?.message || error); }
-  finally { if (release) { try { await release(); } catch (error) { if (!primaryError && summary.outcome === 'running') { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'release-batch-lock'; summary.sanitizedError = sanitize(error?.message || error); } } } }
+  finally { if (release) { try { await (typeof release === 'function' ? release() : release.release()); } catch (error) { if (!primaryError && summary.outcome === 'running') { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'release-batch-lock'; summary.sanitizedError = sanitize(error?.message || error); } } } }
   summary.completedAt = new Date().toISOString();
   try { await persist(); } catch (error) { if (!primaryError) { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'write-final-batch-audit'; summary.sanitizedError = sanitize(error?.message || error); } }
   return summary;

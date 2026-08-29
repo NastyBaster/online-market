@@ -1,5 +1,11 @@
 # Agent Bridge: затверджена архітектура MVP
 
+## Execution ownership and health authority
+
+Bridge entrypoints share one repository-scoped `.agent-bridge/execution-owner.json` lease. The record is atomically created, contains the mode (`once`, `batch`, or `watch`), repository identity, random capability, PID/start identity, run ID, heartbeat and expiry, and is never committed. Only the exact capability can heartbeat or release it; malformed state fails closed. An expired timestamp alone never authorizes deletion: recovery requires verifying the recorded PID/start identity or controlled manual recovery.
+
+Batch delegates internal `runOnce` calls with the exact in-memory capability, batch ID and sequence. Codex children are recorded atomically under `.agent-bridge/children/`; health inspects only the registered owner and children by exact PID and start identity. Ambient Codex, npm, PowerShell and command-line text are diagnostic only and cannot block a run. The existing snapshot parser remains available for exact registered-PID verification and sanitized diagnostics.
+
 ## Рішення
 
 GitHub є єдиним джерелом істини. Агенти не передають прихований контекст один одному: архітектурне рішення живе в issue/ADR, реалізація — у branch/commit/PR, перевірка — у CI та review. Email лише повідомляє про подію.
