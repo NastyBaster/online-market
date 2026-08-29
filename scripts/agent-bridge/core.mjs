@@ -41,7 +41,7 @@ export function documentationPolicyEligible({ files = [], issueAllowedPaths = []
 export const autoMergeAllowed = ({ policyEligible, requiredChecksPass, autoMerge, mergeable, clean, files, issueAllowedPaths, labels }) => Boolean(autoMerge && policyEligible && requiredChecksPass && mergeable && clean && (files ? documentationPolicyEligible({ files, issueAllowedPaths, labels }) : false));
 export const branchFor = (issue) => `agent/${issue.number}-${issue.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'bridge-task'}`;
 
-export async function acquireLock(root, options = {}) { return acquireOwnership(root, { mode: options.mode || 'batch', runId: options.runId, ...options }); }
+export async function acquireLock(root, options = {}) { return acquireOwnership(root, { mode: options.mode || 'batch', runId: options.runId, dryRun: Boolean(options.dryRun), ...options }); }
 export async function writeAudit(root, id, report, fs = { mkdir, writeFile }) { const target = path.join(root, '.agent-bridge', 'runs', `${id}.json`); await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, `${JSON.stringify(JSON.parse(sanitize(JSON.stringify(report))), null, 2)}\n`); }
 export async function writeBatchAudit(root, id, report, fs = { mkdir, writeFile }) { const target = path.join(root, '.agent-bridge', 'batches', `${id}.json`); await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, `${JSON.stringify(JSON.parse(sanitize(JSON.stringify(report))), null, 2)}\n`); }
 

@@ -23,6 +23,7 @@ export function validateOwner(record, repositoryIdentity) {
   if (!Number.isSafeInteger(record.ownerPid) || record.ownerPid < 1 || typeof record.ownerStartIdentity !== 'string' || !record.ownerStartIdentity || typeof record.ownerPlatform !== 'string' || !record.ownerObservedAt || !validIso(record.ownerObservedAt)) throw new Error('malformed execution owner process identity');
   if (typeof record.runId !== 'string' || !record.runId || !validIso(record.createdAt) || !validIso(record.heartbeatAt) || !validIso(record.leaseExpiresAt)) throw new Error('malformed execution owner lease');
   if (record.childRegistryVersion !== CHILD_SCHEMA_VERSION) throw new Error('unsupported child registry version');
+  if (record.dryRun !== undefined && typeof record.dryRun !== 'boolean') throw new Error('malformed execution owner dry-run marker');
   return record;
 }
 
@@ -55,14 +56,14 @@ export async function classifyLease(record, { now = Date.now, inspect = async ()
   return leaseExpired ? 'stale_candidate' : 'owner_process_unverified';
 }
 
-export async function acquireOwnership(root, { mode, runId, now = () => Date.now(), ownerPid = process.pid, ownerStartIdentity, ownerPlatform, ownerExecutableIdentity, ownerObservedAt, processIdentity = getProcessIdentity, leaseMs = DEFAULT_LEASE_MS, tokenGenerator = () => randomBytes(32).toString('hex'), fs = { mkdir, open, readFile, rename, rm }, processInspector } = {}) {
+export async function acquireOwnership(root, { mode, runId, dryRun = false, now = () => Date.now(), ownerPid = process.pid, ownerStartIdentity, ownerPlatform, ownerExecutableIdentity, ownerObservedAt, processIdentity = getProcessIdentity, leaseMs = DEFAULT_LEASE_MS, tokenGenerator = () => randomBytes(32).toString('hex'), fs = { mkdir, open, readFile, rename, rm }, processInspector } = {}) {
   if (!modes.has(mode)) throw new Error('invalid execution owner mode');
   const identityWasProvided = Boolean(ownerStartIdentity); if (!ownerStartIdentity) { const observed = await processIdentity(ownerPid, { now }); if (observed.status !== 'present') throw new Error('owner process identity unavailable'); ({ startIdentity: ownerStartIdentity, platform: ownerPlatform, executableIdentity: ownerExecutableIdentity, observedAt: ownerObservedAt } = observed.identity); }
   ownerPlatform ||= process.platform; ownerObservedAt ||= new Date(now()).toISOString(); if (!ownerStartIdentity || !ownerPlatform || !ownerObservedAt) throw new Error('owner process identity unavailable');
   processInspector ||= identityWasProvided ? async () => ({ exists: true, identityMatch: true }) : async (pid, expected) => { const observed = await processIdentity(pid, { now }); return { exists: observed.status === 'present', identityMatch: observed.status === 'present' ? observed.identity.startIdentity === expected : observed.status === 'absent' ? false : null }; };
   const identity = repositoryIdentity(root); const target = ownerPath(root); await fs.mkdir(runtimeDir(root), { recursive: true });
   const createdAt = new Date(now()).toISOString(); const token = tokenGenerator();
-  const record = { schemaVersion: OWNER_SCHEMA_VERSION, repositoryIdentity: identity, ownershipToken: token, mode, ownerPid, ownerStartIdentity, ownerPlatform, ownerExecutableIdentity: ownerExecutableIdentity || null, ownerObservedAt, runId: runId || `run-${now()}`, createdAt, heartbeatAt: createdAt, leaseExpiresAt: new Date(now() + leaseMs).toISOString(), commandCategory: `bridge_${mode}`, childRegistryVersion: CHILD_SCHEMA_VERSION };
+  const record = { schemaVersion: OWNER_SCHEMA_VERSION, repositoryIdentity: identity, ownershipToken: token, mode, dryRun: Boolean(dryRun), ownerPid, ownerStartIdentity, ownerPlatform, ownerExecutableIdentity: ownerExecutableIdentity || null, ownerObservedAt, runId: runId || `run-${now()}`, createdAt, heartbeatAt: createdAt, leaseExpiresAt: new Date(now() + leaseMs).toISOString(), commandCategory: `bridge_${mode}`, childRegistryVersion: CHILD_SCHEMA_VERSION };
   let handle;
   try { handle = await fs.open(target, 'wx'); await handle.writeFile(`${JSON.stringify(record, null, 2)}\n`, 'utf8'); await handle.sync(); await handle.close(); } catch (error) { await handle?.close().catch(() => {}); if (error?.code === 'EEXIST') { let existing; try { existing = await readOwner(root, fs); } catch { throw new Error('execution owner state is malformed; manual recovery required'); } const identityResult = await processInspector(existing.ownerPid, existing.ownerStartIdentity); if (identityResult?.exists && identityResult.identityMatch !== false) throw new Error(`Agent Bridge ${existing.mode} owner is live`); throw new Error('execution owner exists and requires controlled stale recovery'); } throw error; }
   const confirmed = await readOwner(root, fs); if (confirmed.ownershipToken !== token) throw new Error('execution ownership confirmation failed');
