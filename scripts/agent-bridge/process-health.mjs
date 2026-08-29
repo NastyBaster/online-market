@@ -5,6 +5,68 @@ const nodeExecutables = new Set(['node', 'node.exe']);
 const npmExecutables = new Set(['npm', 'npm.cmd', 'npm.exe']);
 const shellExecutables = new Set(['cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe']);
 
+export const windowsProcessSnapshotArgs = Object.freeze([
+  '-NoProfile', '-NonInteractive', '-Command',
+  "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue'; $records = @(Get-CimInstance -ClassName Win32_Process -Property ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine,CreationDate | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine,CreationDate); ConvertTo-Json -InputObject $records -Depth 3 -Compress"
+]);
+
+const snapshotError = (category, detail = {}) => Object.assign(new Error(category), { category, detail });
+const field = (entry, ...names) => names.map((name) => entry?.[name]).find((value) => value !== undefined);
+
+function parsePid(value, category) {
+  const number = typeof value === 'number' ? value : typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : NaN;
+  if (!Number.isSafeInteger(number) || number <= 0) throw snapshotError(category, { field: 'ProcessId' });
+  return number;
+}
+
+function parseParentPid(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = typeof value === 'number' ? value : typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : NaN;
+  if (!Number.isSafeInteger(number) || number < 0) throw snapshotError('windows_snapshot_invalid_parent_pid', { field: 'ParentProcessId' });
+  return number;
+}
+
+export function parseWindowsProcessSnapshot(rawStdout, { platform = 'win32' } = {}) {
+  const raw = Buffer.isBuffer(rawStdout) ? rawStdout.toString('utf8') : typeof rawStdout === 'string' ? rawStdout : '';
+  const text = raw.replace(/^\uFEFF/, '').trim();
+  if (!text) throw snapshotError('windows_snapshot_empty');
+  let value;
+  try { value = JSON.parse(text); } catch { throw snapshotError('windows_snapshot_invalid_json'); }
+  if (!Array.isArray(value)) throw snapshotError(value === null ? 'windows_snapshot_null_root' : 'windows_snapshot_wrong_root_shape');
+  const seen = new Set();
+  return value.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw snapshotError('windows_snapshot_malformed_record', { index });
+    const pid = parsePid(field(entry, 'ProcessId', 'pid'), 'windows_snapshot_invalid_pid');
+    if (seen.has(pid)) throw snapshotError('windows_snapshot_duplicate_pid', { index, field: 'ProcessId' });
+    seen.add(pid);
+    const ppid = parseParentPid(field(entry, 'ParentProcessId', 'ppid'));
+    const nameValue = field(entry, 'Name', 'name');
+    const executableValue = field(entry, 'ExecutablePath', 'executable');
+    const commandValue = field(entry, 'CommandLine', 'command');
+    const creationValue = field(entry, 'CreationDate', 'startTime');
+    if (nameValue !== undefined && nameValue !== null && typeof nameValue !== 'string') throw snapshotError('windows_snapshot_invalid_name', { index, field: 'Name' });
+    if (executableValue !== undefined && executableValue !== null && typeof executableValue !== 'string') throw snapshotError('windows_snapshot_invalid_executable_path', { index, field: 'ExecutablePath' });
+    if (commandValue !== undefined && commandValue !== null && typeof commandValue !== 'string') throw snapshotError('windows_snapshot_invalid_command_line', { index, field: 'CommandLine' });
+    if (creationValue !== undefined && creationValue !== null && typeof creationValue !== 'string' && typeof creationValue !== 'number') throw snapshotError('windows_snapshot_invalid_creation_date', { index, field: 'CreationDate' });
+    const name = nameValue == null ? '' : nameValue;
+    const command = commandValue == null ? null : commandValue;
+    const parsed = command === null ? { args: [], malformed: true } : parseWindowsCommandLine(command);
+    return { pid, ppid, name, command, executablePath: executableValue == null ? null : executableValue, startTime: creationValue == null ? null : String(creationValue), executable: executableName(executableValue || name), parsedArgs: parsed.args, parseMalformed: parsed.malformed, platform };
+  });
+}
+
+export async function inspectWindowsProcessSnapshot({ run, executable = 'powershell.exe', args = windowsProcessSnapshotArgs, cwd } = {}) {
+  if (typeof run !== 'function') throw new TypeError('process snapshot runner is required');
+  let result;
+  try { result = await run(executable, [...args], { cwd }); } catch { return { ok: false, error: { category: 'process_inspection_command_failed' } }; }
+  const stdout = Buffer.isBuffer(result?.stdout) ? result.stdout : Buffer.from(String(result?.stdout ?? ''), 'utf8');
+  const stderr = String(result?.stderr ?? '').trim();
+  if (result?.exitCode !== 0) return { ok: false, error: { category: 'process_inspection_command_failed', exitCode: Number.isInteger(result?.exitCode) ? result.exitCode : null, stdoutNonEmpty: stdout.length > 0, stderrNonEmpty: stderr.length > 0 } };
+  if (stderr) return { ok: false, error: { category: 'windows_snapshot_unexpected_stderr', stdoutNonEmpty: stdout.length > 0, stderrNonEmpty: true } };
+  try { return { ok: true, records: parseWindowsProcessSnapshot(stdout) }; }
+  catch (error) { return { ok: false, error: { category: error.category || 'windows_snapshot_malformed', ...error.detail, stdoutNonEmpty: stdout.length > 0, stderrNonEmpty: false } }; }
+}
+
 export function parseWindowsCommandLine(value) {
   if (typeof value !== 'string') return { args: [], malformed: true };
   const args = []; let arg = ''; let quoted = false; let wasQuoted = false; let slashCount = 0;
@@ -33,9 +95,9 @@ export function normalizeProcessSnapshot(value, { platform = process.platform } 
     const pid = entry?.pid ?? entry?.ProcessId; const ppid = entry?.ppid ?? entry?.ParentProcessId;
     const name = entry?.name ?? entry?.Name; const command = entry?.command ?? entry?.CommandLine;
     const startTime = entry?.startTime ?? entry?.CreationDate;
-    if (!entry || !integer(Number(pid)) || (ppid !== undefined && ppid !== null && !integer(Number(ppid))) || typeof name !== 'string' || typeof command !== 'string') throw new Error('malformed process snapshot');
-    const parsed = parseWindowsCommandLine(command);
-    return { pid: Number(pid), ppid: ppid == null ? null : Number(ppid), name, command, startTime: startTime == null ? null : String(startTime), executable: executableName(name), parsedArgs: parsed.args, parseMalformed: parsed.malformed, platform };
+    if (!entry || !integer(Number(pid)) || (ppid !== undefined && ppid !== null && (!Number.isSafeInteger(Number(ppid)) || Number(ppid) < 0)) || (name !== undefined && name !== null && typeof name !== 'string') || (command !== undefined && command !== null && typeof command !== 'string')) throw new Error('malformed process snapshot');
+    const parsed = command == null ? { args: [], malformed: true } : parseWindowsCommandLine(command);
+    return { pid: Number(pid), ppid: ppid == null ? null : Number(ppid), name: name == null ? '' : name, command: command == null ? null : command, startTime: startTime == null ? null : String(startTime), executable: executableName(entry?.executablePath ?? entry?.ExecutablePath ?? name), parsedArgs: parsed.args, parseMalformed: parsed.malformed, platform };
   });
 }
 
