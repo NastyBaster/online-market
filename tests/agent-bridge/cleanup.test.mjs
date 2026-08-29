@@ -24,5 +24,5 @@ test('remote cleanup is exact, non-force, and follows local cleanup', async () =
 test('unsafe task branches are rejected before remote deletion', async () => {
   const source = await readFile('scripts/agent-bridge/cli.mjs', 'utf8');
   assert.match(source, /unsafe task branch/);
-  assert.match(source, /\^agent\\\\\/\\d\+/);
+  assert.ok(source.includes("^agent\\\\/\\d+"));
 });
