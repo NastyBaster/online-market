@@ -144,6 +144,27 @@ Copy this template for each completed run and replace pending fields only with o
 - Final status: Running
 - Lessons learned: Pending
 
+### Run 6 — record final protected Agent Bridge cleanup verification
+
+- Issue: #38
+- Run ID: `night-20260829072702900-875829`
+- Prior prerequisite: PR #37 was independently reviewed and merged before this bounded run.
+- Pull request: Pending parent-owned creation
+- Scope: Agent Bridge pilot log only
+- Lifecycle: observed `agent:running`; `agent:review` and `done` remain pending parent-owned lifecycle completion
+- Contract validation: Pending parent PR validation for the exact head
+- Started (UTC): 2026-08-29T07:27:02.900Z
+- Finished (UTC): Pending parent terminal audit
+- Duration: Pending parent terminal audit
+- Repair cycles: Pending parent terminal audit
+- Owner effort: Pending
+- Checks: `git diff --check`, conflict-marker scan, changed-path allowlist, and relative Markdown link validation are required for this log-only change. Agent PR contract validation, protected merge without bypass, merge read-back, issue closure, worktree removal, local-branch absence, remote-branch absence, and terminal-audit fields remain pending their parent-owned lifecycle steps.
+- Merge result: Pending parent protected merge and merged-PR read-back
+- Cleanup result: Pending parent verification of worktree removal and local and remote task-branch absence
+- Terminal audit: Pending parent audit; the final record must contain a non-zero PR number, `merged: true`, `cleanup: complete`, `autoMerged: true`, and terminal outcome `merged/complete`.
+- Final status: Running
+- Lessons learned: Record only facts available to the child; parent-owned lifecycle outcomes are attached only after their corresponding verification succeeds.
+
 B0.2 may be proposed only when all of the following are true:
 
 1. The summary table has ten completed pilot runs, each limited to documentation or GitHub metadata.
