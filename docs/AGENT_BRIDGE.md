@@ -135,6 +135,14 @@ The parent emits sanitized phase and heartbeat events and persists checkpoints. 
 
 Low-risk documentation auto-merge is a two-layer decision: normalized repository policy must permit every changed path, and the issue contract must independently permit every changed path. Repository policy covers `README.md` and Markdown beneath `docs/` except `docs/adr/`; risky metadata and high-risk labels veto auto-merge.
 
+## Bounded sequential batch executor
+
+`npm run bridge:batch` is an importable orchestration layer over the verified `runOnce` primitive, not a second task lifecycle. It is fixed at concurrency 1. The default is two tasks; `BRIDGE_BATCH_MAX_TASKS` accepts only integers 1–5, and `BRIDGE_BATCH_MAX_MINUTES` accepts only integers 1–180. Invalid values fail before a task is claimed.
+
+Before every task, and between tasks, the batch requires clean synchronized `main` and exactly the expected worktree state. It starts the next task only after the preceding run audit reports terminal `complete` with cleanup `complete`. It stops on the first blocked/failed task, cleanup inconsistency, health failure, audit-write failure, task limit, elapsed-time limit, or no eligible issue. Batch summaries are sanitized JSON records under `.agent-bridge/batches/` and contain only run IDs, issue/PR numbers, outcomes, and cleanup facts.
+
+`npm run bridge:batch -- --dry-run` performs health and eligible-issue discovery only: it acquires no lock, writes no audit, claims no issue, creates no worktree/PR/branch, and performs no GitHub or Git mutation. A real batch remains owner-authorized work; this implementation does not authorize one. The Bridge may be extracted into a versioned `agent-bridge-kit` repository/npm CLI only after successful batch verification and one storefront task; extraction is not part of this change.
+
 ## Acceptance criteria Bridge MVP
 
 1. Неповна issue не зберігає `agent:ready`, а CLI не claim-ить `agent:validate`.

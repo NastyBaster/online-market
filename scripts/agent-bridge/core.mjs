@@ -2,6 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const defaults = Object.freeze({ concurrency: 1, maxTasks: 3, maxRepairCycles: 2, maxTaskMinutes: 90, pollSeconds: 30, dryRun: true, autoMerge: false });
+export const batchDefaults = Object.freeze({ maxTasks: 2, maxMinutes: 180, maxTaskCap: 5, concurrency: 1 });
 export const allowedPaths = Object.freeze(['package.json', 'package-lock.json', 'scripts/agent-bridge/', 'tests/agent-bridge/', '.gitignore', '.env.example', 'README.md', 'docs/AGENT_BRIDGE.md', 'docs/BRIDGE_RUNBOOK.md', 'docs/BRIDGE_PILOT_LOG.md', 'docs/STACK.md', 'AGENTS.md']);
 const positiveInteger = (value, fallback, minimum = 1) => { const parsed = Number(value); return Number.isInteger(parsed) && parsed >= minimum ? parsed : fallback; };
 
@@ -10,6 +11,7 @@ export const runId = (now = new Date(), random = Math.random) => `night-${now.to
 export const eligible = (issue) => issue.labels?.some((label) => label.name === 'agent:ready') && !issue.labels?.some((label) => ['agent:running', 'agent:review', 'agent:blocked'].includes(label.name));
 export const sanitize = (value) => String(value).replace(/(?:gh[pousr]_[A-Za-z0-9_-]+|github_pat_[A-Za-z0-9_-]+)/g, '[redacted]').replace(/[A-Za-z]:\\[^\s"']+/g, '[private-path]');
 export function parseConfig(args, env = process.env) { return { ...defaults, dryRun: args.includes('--dry-run') || (env.BRIDGE_DRY_RUN ?? 'true') !== 'false', autoMerge: args.includes('--auto-merge') || env.BRIDGE_AUTO_MERGE === 'true', maxTasks: positiveInteger(env.BRIDGE_MAX_TASKS, defaults.maxTasks), maxRepairCycles: positiveInteger(env.BRIDGE_MAX_REPAIR_CYCLES, defaults.maxRepairCycles, 0), maxTaskMinutes: positiveInteger(env.BRIDGE_MAX_TASK_MINUTES, defaults.maxTaskMinutes), pollSeconds: Math.max(30, positiveInteger(env.BRIDGE_POLL_SECONDS, defaults.pollSeconds)) }; }
+export function parseBatchConfig(args, env = process.env) { const value = (name, fallback, maximum) => { const raw = env[name]; if (raw === undefined || raw === '') return fallback; const parsed = Number(raw); if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum) throw new Error(`${name} must be an integer from 1 to ${maximum}`); return parsed; }; if (env.BRIDGE_CONCURRENCY !== undefined && env.BRIDGE_CONCURRENCY !== '1') throw new Error('BRIDGE_CONCURRENCY must be 1 for bounded batch execution'); return { ...parseConfig(args, env), ...batchDefaults, maxTasks: value('BRIDGE_BATCH_MAX_TASKS', batchDefaults.maxTasks, batchDefaults.maxTaskCap), maxMinutes: value('BRIDGE_BATCH_MAX_MINUTES', batchDefaults.maxMinutes, batchDefaults.maxMinutes), concurrency: 1 }; }
 export function normalizeRepoPath(value) {
   const raw = String(value ?? '');
   if (!raw || raw.includes('\0') || /^[\\/]/.test(raw) || /^[A-Za-z]:[\\/]/.test(raw)) return null;
@@ -39,6 +41,7 @@ export const branchFor = (issue) => `agent/${issue.number}-${issue.title.toLower
 
 export async function acquireLock(root, fs = { mkdir, rm }) { const lock = path.join(root, '.agent-bridge', 'lock'); await fs.mkdir(path.dirname(lock), { recursive: true }); try { await fs.mkdir(lock); } catch (error) { if (error?.code === 'EEXIST') throw new Error('another Agent Bridge run already owns this repository'); throw error; } return async () => fs.rm(lock, { recursive: true, force: true }); }
 export async function writeAudit(root, id, report, fs = { mkdir, writeFile }) { const target = path.join(root, '.agent-bridge', 'runs', `${id}.json`); await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, `${JSON.stringify(JSON.parse(sanitize(JSON.stringify(report))), null, 2)}\n`); }
+export async function writeBatchAudit(root, id, report, fs = { mkdir, writeFile }) { const target = path.join(root, '.agent-bridge', 'batches', `${id}.json`); await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, `${JSON.stringify(JSON.parse(sanitize(JSON.stringify(report))), null, 2)}\n`); }
 
 export function issueAllowedPaths(issue) {
   const section = String(issue.body || '').match(/### Allowed paths\s*([\s\S]*?)(?=\n### |$)/i)?.[1] || '';
@@ -55,12 +58,12 @@ export function promptFor(issue, id, context = {}) {
 export function prBody(issue, { commit, checks, run }) { return [`## Issue\n\nCloses #${issue.number}`, '## Summary\n\nImplemented by the parent-owned Agent Bridge lifecycle.', `## Changes\n\nChild implementation was validated and committed by run ${run}.`, `## Checks\n\n${checks.map((check) => `- [x] ${check}`).join('\n') || '- [x] Parent validation'}`, '## Migrations and configuration\n\nNone.', '## Screenshots\n\nNone; documentation/tooling change only.', '## Risks and limitations\n\nParent lifecycle operations are fail-closed and scope-limited.', `## Rollback\n\nRevert commit ${commit || 'the implementation commit'}.`, `## Handoff\n\nParent completed commit, push, PR creation, review transition, and check verification for run ${run}.`].join('\n\n'); }
 
 export async function selectOldestEligible(adapter) { const issues = await adapter.listReadyIssues(); return issues.filter(eligible).sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0] ?? null; }
-export async function runOnce({ adapter, root, config, id = runId(), now = () => Date.now(), timeout = setTimeout, progress = () => {} }) {
+export async function runOnce({ adapter, root, config, id = runId(), now = () => Date.now(), timeout = setTimeout, progress = () => {}, lockHeld = false }) {
   const report = { runId: id, issue: null, branch: null, phase: 'discover', phases: [], child: null, changedPaths: [], checks: [], commit: null, pushed: false, pullRequest: null, merge: null, cleanup: null, outcome: 'running', startedAt: new Date().toISOString() };
   const emit = (phase, data = {}) => { report.phase = phase; report.phases.push({ phase, at: new Date().toISOString(), ...data }); progress({ runId: id, phase, issue: report.issue, branch: report.branch, ...data }); void adapter.writeAudit?.(root, id, report); };
   const issue = await selectOldestEligible(adapter); if (!issue) { report.outcome = 'no-eligible-issue'; emit('complete', { outcome: report.outcome }); await adapter.writeAudit?.(root, id, report); return { runId: id, outcome: report.outcome }; }
   report.issue = issue.number; emit('discover', { issue: issue.number }); if (config.dryRun) { report.outcome = 'dry-run'; emit('complete', { outcome: report.outcome, wouldClaim: true }); return { runId: id, outcome: report.outcome, issue: issue.number, wouldClaim: true }; }
-  const release = await adapter.acquireLock(root); let worktree; let branch;
+  const release = lockHeld ? async () => {} : await adapter.acquireLock(root); let worktree; let branch;
   try {
     const current = await adapter.getIssue(issue.number); if (!eligible(current)) { report.outcome = 'claim-refused'; emit('blocked', { outcome: report.outcome }); return { runId: id, outcome: report.outcome, issue: issue.number }; }
     emit('claim'); await adapter.claimIssue(issue.number); branch = branchFor(current); worktree = adapter.worktreePath(root, branch); report.branch = branch; emit('prepare-worktree'); await adapter.createWorktree(branch, worktree);
