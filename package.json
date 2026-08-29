@@ -5,6 +5,7 @@
   "scripts": {
     "bridge:doctor": "node scripts/agent-bridge/doctor.mjs",
     "bridge:once": "node scripts/agent-bridge/cli.mjs once",
+    "bridge:batch": "node scripts/agent-bridge/cli.mjs batch",
     "bridge:watch": "node scripts/agent-bridge/cli.mjs watch",
     "test:bridge": "node --test tests/agent-bridge/**/*.test.mjs"
   }
