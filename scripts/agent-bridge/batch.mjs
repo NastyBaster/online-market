@@ -38,9 +38,9 @@ export async function runBoundedBatch({ adapter, root, config, batchId = `batch-
       try { await persist(); } catch (error) { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'write-batch-audit'; summary.sanitizedError = sanitize(error?.message || error); break; }
     }
   } catch (error) { primaryError = error; summary.outcome = !release && summary.attemptedTaskCount === 0 ? 'stopped_health_check' : 'stopped_task_failed'; summary.stopPhase = summary.stopPhase || (!release ? 'acquire-batch-lock' : 'batch-execution'); summary.sanitizedError = sanitize(error?.message || error); }
-  finally { if (release) { try { await (typeof release === 'function' ? release() : release.release()); } catch (error) { if (!primaryError && summary.outcome === 'running') { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'release-batch-lock'; summary.sanitizedError = sanitize(error?.message || error); } } } }
+  finally { if (release) { try { await (typeof release === 'function' ? release() : release.release()); } catch (error) { const secondary = { phase: 'release-batch-lock', category: sanitize(error?.message || error).slice(0, 160) }; summary.secondaryCleanupErrors = [...(summary.secondaryCleanupErrors || []), secondary]; if (!primaryError && ['running', 'completed_task_limit', 'completed_time_limit', 'completed_no_work'].includes(summary.outcome)) { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'release-batch-lock'; summary.sanitizedError = secondary.category; } } } }
   summary.completedAt = new Date().toISOString();
-  try { await persist(); } catch (error) { if (!primaryError) { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'write-final-batch-audit'; summary.sanitizedError = sanitize(error?.message || error); } }
+  try { await persist(); } catch (error) { const secondary = { phase: 'write-final-batch-audit', category: sanitize(error?.message || error).slice(0, 160) }; summary.secondaryCleanupErrors = [...(summary.secondaryCleanupErrors || []), secondary]; if (!primaryError) { summary.outcome = 'stopped_health_check'; summary.stopPhase = 'write-final-batch-audit'; summary.sanitizedError = secondary.category; } }
   return summary;
 }
 
