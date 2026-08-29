@@ -1,5 +1,11 @@
 # Agent Bridge: затверджена архітектура MVP
 
+## Execution ownership and health authority
+
+Bridge entrypoints share one repository-scoped `.agent-bridge/execution-owner.json` lease. The record is atomically created, contains the mode (`once`, `batch`, or `watch`), repository identity, random capability, PID/start identity, run ID, heartbeat and expiry, and is never committed. Only the exact capability can heartbeat or release it; malformed state fails closed. An expired timestamp alone never authorizes deletion: recovery requires verifying the recorded PID/start identity or controlled manual recovery.
+
+Batch delegates internal `runOnce` calls with the exact in-memory capability, batch ID and sequence. Codex children are recorded atomically under `.agent-bridge/children/`; health inspects only the registered owner and children by exact PID and start identity. Ambient Codex, npm, PowerShell and command-line text are diagnostic only and cannot block a run. The existing snapshot parser remains available for exact registered-PID verification and sanitized diagnostics.
+
 ## Рішення
 
 GitHub є єдиним джерелом істини. Агенти не передають прихований контекст один одному: архітектурне рішення живе в issue/ADR, реалізація — у branch/commit/PR, перевірка — у CI та review. Email лише повідомляє про подію.
@@ -141,7 +147,7 @@ Low-risk documentation auto-merge is a two-layer decision: normalized repository
 
 Before every task, and between tasks, the batch requires clean synchronized `main` and exactly the expected worktree state. It starts the next task only after the preceding run audit reports terminal `complete` with cleanup `complete`. It stops on the first blocked/failed task, cleanup inconsistency, health failure, audit-write failure, task limit, elapsed-time limit, or no eligible issue. Batch summaries are sanitized JSON records under `.agent-bridge/batches/` and contain only run IDs, issue/PR numbers, outcomes, and cleanup facts.
 
-`npm run bridge:batch -- --dry-run` performs health and eligible-issue discovery only: it acquires no lock, writes no audit, claims no issue, creates no worktree/PR/branch, and performs no GitHub or Git mutation. A real batch remains owner-authorized work; this implementation does not authorize one. The Bridge may be extracted into a versioned `agent-bridge-kit` repository/npm CLI only after successful batch verification and one storefront task; extraction is not part of this change.
+`npm run bridge:batch -- --dry-run` acquires one temporary repository execution lease for mutual exclusion, then performs health and eligible-issue discovery only. It writes no task audit, claims no issue, creates no worktree/PR/branch/child, and performs no GitHub or Git mutation. The lease is always released; a lease that remains after the command is a failure requiring controlled recovery. A real batch remains owner-authorized work; this implementation does not authorize one. The Bridge may be extracted into a versioned `agent-bridge-kit` repository/npm CLI only after successful batch verification and one storefront task; extraction is not part of this change.
 
 ## Acceptance criteria Bridge MVP
 
