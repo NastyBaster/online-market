@@ -15,3 +15,14 @@ test('cleanup command order removes worktree before pruning and deleting branch'
   const branch = source.indexOf("['branch', '-d'");
   assert.ok(remove >= 0 && remove < prune && prune < branch);
 });
+test('remote cleanup is exact, non-force, and follows local cleanup', async () => {
+  const source = await readFile('scripts/agent-bridge/cli.mjs', 'utf8');
+  assert.match(source, /git\/refs\/heads/);
+  assert.doesNotMatch(source, /push.*--force/);
+  assert.ok(source.indexOf("['branch', '-d'") < source.indexOf("git/refs/heads/"));
+});
+test('unsafe task branches are rejected before remote deletion', async () => {
+  const source = await readFile('scripts/agent-bridge/cli.mjs', 'utf8');
+  assert.match(source, /unsafe task branch/);
+  assert.match(source, /\^agent\\\\\/\\d\+/);
+});
