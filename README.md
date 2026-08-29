@@ -10,6 +10,7 @@
 - [Інструкція покупцю магазину](docs/CUSTOMER_GUIDE.md)
 - [Обговорення Agent Bridge](docs/AGENT_BRIDGE.md)
 - [Практична інструкція Agent Bridge](docs/BRIDGE_RUNBOOK.md)
+- [Agent Bridge installation and verification guide](docs/AGENT_BRIDGE_INSTALLATION.md)
 - [Глосарій термінів Agent Bridge](docs/BRIDGE_GLOSSARY.md)
 - [Журнал пілота Agent Bridge](docs/BRIDGE_PILOT_LOG.md)
 - [ADR автономного Agent Bridge](docs/adr/0001-bounded-autonomous-agent-bridge.md)
