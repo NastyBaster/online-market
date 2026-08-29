@@ -1,5 +1,22 @@
 # Online Market Template
 
+## Storefront Foundation
+
+The runnable application uses Node.js 22 and npm 10.5+ (see `.nvmrc`). Install dependencies from the lockfile with `npm ci`, then start the local app with `npm run dev` and open `http://localhost:3000`.
+
+The foundation runs in demo mode by default. Copy `.env.example` to `.env.local` to change `DEMO_MODE` or the non-secret store name. Demo mode is local-only and does not call payment, delivery, or other paid services.
+
+Quality checks:
+
+- `npm run lint` — ESLint
+- `npm run typecheck` — strict TypeScript
+- `npm test` — Vitest unit tests
+- `npm run test:bridge` — Agent Bridge tests
+- `npm run build` / `npm run start` — production build and server
+- `npm run test:e2e` — Playwright desktop and mobile smoke tests
+
+The application boundary is `src/app`; domain logic belongs in `src/modules` and external adapters belong in `src/providers`. This foundation intentionally contains no database, catalogue, cart, checkout, authentication, or payment functionality.
+
 Тиражований шаблон українського інтернет-магазину: безпечний демонстраційний стенд на безкоштовних тарифах і окремі production-інсталяції для клієнтів.
 
 ## Документація
