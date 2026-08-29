@@ -5,6 +5,81 @@ const nodeExecutables = new Set(['node', 'node.exe']);
 const npmExecutables = new Set(['npm', 'npm.cmd', 'npm.exe']);
 const shellExecutables = new Set(['cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe']);
 
+export const windowsProcessSnapshotArgs = Object.freeze([
+  '-NoProfile', '-NonInteractive', '-Command',
+  "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue'; $records = @(Get-CimInstance -ClassName Win32_Process -Property ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine,CreationDate | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine,CreationDate); ConvertTo-Json -InputObject $records -Depth 3 -Compress"
+]);
+
+const snapshotError = (category, detail = {}) => Object.assign(new Error(category), { category, detail });
+const field = (entry, ...names) => names.map((name) => entry?.[name]).find((value) => value !== undefined);
+
+function parsePid(value, category) {
+  const number = typeof value === 'number' ? value : NaN;
+  if (typeof value === 'number' && Object.is(value, -0)) throw snapshotError(category, { field: 'ProcessId' });
+  if (!Number.isSafeInteger(number) || number <= 0) throw snapshotError(category, { field: 'ProcessId' });
+  return number;
+}
+
+function parseParentPid(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = typeof value === 'number' ? value : NaN;
+  if (typeof value === 'number' && Object.is(value, -0)) throw snapshotError('windows_snapshot_invalid_parent_pid', { field: 'ParentProcessId' });
+  if (!Number.isSafeInteger(number) || number < 0) throw snapshotError('windows_snapshot_invalid_parent_pid', { field: 'ParentProcessId' });
+  return number;
+}
+
+const isSystemIdleName = (value) => typeof value === 'string' && ['idle', 'system idle process'].includes(value.trim().toLowerCase());
+const validateSystemIdle = ({ pid, ppid, name, command, executablePath }, error = (category, detail) => snapshotError(category, detail)) => {
+  if (pid !== 0) return false;
+  if (ppid !== 0 || !isSystemIdleName(name) || (command !== null && command !== '') || (executablePath !== null && executablePath !== '')) throw error('windows_snapshot_invalid_system_idle', { field: 'system_idle' });
+  return true;
+};
+
+export function parseWindowsProcessSnapshot(rawStdout, { platform = 'win32' } = {}) {
+  const raw = Buffer.isBuffer(rawStdout) ? rawStdout.toString('utf8') : typeof rawStdout === 'string' ? rawStdout : '';
+  const text = raw.replace(/^\uFEFF/, '').trim();
+  if (!text) throw snapshotError('windows_snapshot_empty');
+  let value;
+  try { value = JSON.parse(text); } catch { throw snapshotError('windows_snapshot_invalid_json'); }
+  if (!Array.isArray(value)) throw snapshotError(value === null ? 'windows_snapshot_null_root' : 'windows_snapshot_wrong_root_shape');
+  const seen = new Set();
+  return value.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw snapshotError('windows_snapshot_malformed_record', { index });
+    const rawPid = field(entry, 'ProcessId', 'pid');
+    if (Object.is(rawPid, -0)) throw snapshotError('windows_snapshot_invalid_pid', { field: 'ProcessId' });
+    const pid = rawPid === 0 ? 0 : parsePid(rawPid, 'windows_snapshot_invalid_pid');
+    if (seen.has(pid)) throw snapshotError('windows_snapshot_duplicate_pid', { index, field: 'ProcessId' });
+    seen.add(pid);
+    const ppid = parseParentPid(field(entry, 'ParentProcessId', 'ppid'));
+    const nameValue = field(entry, 'Name', 'name');
+    const executableValue = field(entry, 'ExecutablePath', 'executable');
+    const commandValue = field(entry, 'CommandLine', 'command');
+    const creationValue = field(entry, 'CreationDate', 'startTime');
+    if (nameValue !== undefined && nameValue !== null && typeof nameValue !== 'string') throw snapshotError('windows_snapshot_invalid_name', { index, field: 'Name' });
+    if (executableValue !== undefined && executableValue !== null && typeof executableValue !== 'string') throw snapshotError('windows_snapshot_invalid_executable_path', { index, field: 'ExecutablePath' });
+    if (commandValue !== undefined && commandValue !== null && typeof commandValue !== 'string') throw snapshotError('windows_snapshot_invalid_command_line', { index, field: 'CommandLine' });
+    if (creationValue !== undefined && creationValue !== null && typeof creationValue !== 'string' && typeof creationValue !== 'number') throw snapshotError('windows_snapshot_invalid_creation_date', { index, field: 'CreationDate' });
+    const name = nameValue == null ? '' : nameValue;
+    const command = commandValue == null ? null : commandValue;
+    const executablePath = executableValue == null ? null : executableValue;
+    const systemIdle = validateSystemIdle({ pid, ppid, name, command, executablePath });
+    const parsed = command === null ? { args: [], malformed: !systemIdle } : parseWindowsCommandLine(command);
+    return { pid, ppid, name, command, executablePath, startTime: creationValue == null ? null : String(creationValue), executable: executableName(executablePath || name), parsedArgs: parsed.args, parseMalformed: parsed.malformed, systemIdle, platform };
+  });
+}
+
+export async function inspectWindowsProcessSnapshot({ run, executable = 'powershell.exe', args = windowsProcessSnapshotArgs, cwd } = {}) {
+  if (typeof run !== 'function') throw new TypeError('process snapshot runner is required');
+  let result;
+  try { result = await run(executable, [...args], { cwd }); } catch { return { ok: false, error: { category: 'process_inspection_command_failed' } }; }
+  const stdout = Buffer.isBuffer(result?.stdout) ? result.stdout : Buffer.from(String(result?.stdout ?? ''), 'utf8');
+  const stderr = String(result?.stderr ?? '').trim();
+  if (result?.exitCode !== 0) return { ok: false, error: { category: 'process_inspection_command_failed', exitCode: Number.isInteger(result?.exitCode) ? result.exitCode : null, stdoutNonEmpty: stdout.length > 0, stderrNonEmpty: stderr.length > 0 } };
+  if (stderr) return { ok: false, error: { category: 'windows_snapshot_unexpected_stderr', stdoutNonEmpty: stdout.length > 0, stderrNonEmpty: true } };
+  try { return { ok: true, records: parseWindowsProcessSnapshot(stdout) }; }
+  catch (error) { return { ok: false, error: { category: error.category || 'windows_snapshot_malformed', ...error.detail, stdoutNonEmpty: stdout.length > 0, stderrNonEmpty: false } }; }
+}
+
 export function parseWindowsCommandLine(value) {
   if (typeof value !== 'string') return { args: [], malformed: true };
   const args = []; let arg = ''; let quoted = false; let wasQuoted = false; let slashCount = 0;
@@ -29,13 +104,22 @@ export function parseWindowsCommandLine(value) {
 export function normalizeProcessSnapshot(value, { platform = process.platform } = {}) {
   const entries = Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : null;
   if (!entries) throw new Error('process snapshot must be an array');
+  const seen = new Set();
   return entries.map((entry) => {
     const pid = entry?.pid ?? entry?.ProcessId; const ppid = entry?.ppid ?? entry?.ParentProcessId;
     const name = entry?.name ?? entry?.Name; const command = entry?.command ?? entry?.CommandLine;
     const startTime = entry?.startTime ?? entry?.CreationDate;
-    if (!entry || !integer(Number(pid)) || (ppid !== undefined && ppid !== null && !integer(Number(ppid))) || typeof name !== 'string' || typeof command !== 'string') throw new Error('malformed process snapshot');
-    const parsed = parseWindowsCommandLine(command);
-    return { pid: Number(pid), ppid: ppid == null ? null : Number(ppid), name, command, startTime: startTime == null ? null : String(startTime), executable: executableName(name), parsedArgs: parsed.args, parseMalformed: parsed.malformed, platform };
+    const executablePath = entry?.executablePath ?? entry?.ExecutablePath;
+    const validPid = typeof pid === 'number' && Number.isSafeInteger(pid) && !Object.is(pid, -0) && (pid > 0 || pid === 0);
+    const validPpid = ppid === undefined || ppid === null || (typeof ppid === 'number' && Number.isSafeInteger(ppid) && !Object.is(ppid, -0) && ppid >= 0);
+    if (!entry || !validPid || !validPpid || (name !== undefined && name !== null && typeof name !== 'string') || (command !== undefined && command !== null && typeof command !== 'string') || (executablePath !== undefined && executablePath !== null && typeof executablePath !== 'string') || (startTime !== undefined && startTime !== null && typeof startTime !== 'string' && typeof startTime !== 'number')) throw new Error('malformed process snapshot');
+    if (seen.has(pid)) throw new Error('duplicate process PID');
+    seen.add(pid);
+    const normalizedName = name == null ? '' : name; const normalizedCommand = command == null ? null : command; const normalizedExecutablePath = executablePath == null ? null : executablePath; const normalizedPpid = ppid == null ? null : ppid;
+    const systemIdle = pid === 0 && validateSystemIdle({ pid, ppid: normalizedPpid, name: normalizedName, command: normalizedCommand, executablePath: normalizedExecutablePath }, (category) => new Error(category));
+    if (pid === 0 && !systemIdle) throw new Error('malformed process snapshot');
+    const parsed = normalizedCommand == null ? { args: [], malformed: !systemIdle } : parseWindowsCommandLine(normalizedCommand);
+    return { pid, ppid: normalizedPpid, name: normalizedName, command: normalizedCommand, executablePath: normalizedExecutablePath, startTime: startTime == null ? null : String(startTime), executable: executableName(normalizedExecutablePath || normalizedName), parsedArgs: parsed.args, parseMalformed: parsed.malformed, systemIdle, platform };
   });
 }
 
@@ -73,6 +157,7 @@ const shellPayload = (process) => {
   return nested.malformed ? null : nested.args;
 };
 const commandIdentity = (process) => {
+  if (process.command == null) return { kind: null };
   if (process.parseMalformed) return { kind: 'ambiguous' };
   if (npmExecutables.has(process.executable)) { const args = npmArgs(process); if (npmWatch(args)) return { kind: 'watch' }; if (npmBridge(args)) return { kind: 'bridge' }; }
   const node = nodeCommand(process); if (node.kind) return node;
@@ -96,6 +181,7 @@ export function classifyBridgeProcesses(snapshot, context = {}) {
   const ancestorPids = new Set(); let ancestor = processes.find((entry) => entry.pid === Number(current.pid))?.ppid;
   while (ancestor) { ancestorPids.add(ancestor); ancestor = processes.find((entry) => entry.pid === ancestor)?.ppid; }
   const classified = processes.map((process) => {
+    if (process.systemIdle) return safeRecord({ ...process, category: 'system_idle', relation: 'system', identityMatch: null, reason: 'validated Windows System Idle sentinel' });
     const identityMatch = current.startTime != null && process.pid === Number(current.pid) ? process.startTime === current.startTime : null;
     if (process.pid === Number(current.pid)) return safeRecord({ ...process, category: identityMatch === false ? 'stale_pid_record' : 'current_batch', relation: 'current-run', identityMatch, reason: identityMatch === false ? 'current PID identity mismatch' : 'current batch process' });
     const launcher = launchers.find((record) => sameIdentity(process, record)) || (ancestorPids.has(process.pid) && ['npm', 'npm.cmd', 'node', 'node.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe', 'cmd', 'cmd.exe'].includes(process.executable) && commandIdentity(process).kind === 'bridge' ? process : null);
@@ -113,7 +199,19 @@ export function classifyBridgeProcesses(snapshot, context = {}) {
     return safeRecord({ ...process, category: 'unrelated_process', relation: 'untracked', identityMatch: null, reason: 'unrelated process' });
   });
   const blocking = classified.filter((entry) => blockingCategories.has(entry.category));
-  return { pass: blocking.length === 0, processes: classified, blocking };
+  return { pass: blocking.length === 0, totalProcessCount: processes.length, nullCommandLineCount: processes.filter((entry) => entry.command === null).length, processes: classified, blocking };
 }
 
-export function sanitizedProcessHealth(result) { return { pass: Boolean(result?.pass), blocking: Array.isArray(result?.blocking) ? result.blocking : [], processes: Array.isArray(result?.processes) ? result.processes : [] }; }
+export function sanitizedProcessHealth(result) {
+  const processes = Array.isArray(result?.processes) ? result.processes : [];
+  const blocking = Array.isArray(result?.blocking) ? result.blocking : [];
+  return {
+    pass: Boolean(result?.pass),
+    totalProcessCount: processes.length,
+    nullCommandLineCount: Number.isSafeInteger(result?.nullCommandLineCount) ? result.nullCommandLineCount : 0,
+    systemIdleCount: processes.filter((entry) => entry.category === 'system_idle').length,
+    blockingCategoryCount: blocking.length,
+    blocking,
+    processes
+  };
+}
