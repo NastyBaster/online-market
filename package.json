@@ -7,6 +7,7 @@
     "bridge:once": "node scripts/agent-bridge/cli.mjs once",
     "bridge:batch": "node scripts/agent-bridge/cli.mjs batch",
     "bridge:watch": "node scripts/agent-bridge/cli.mjs watch",
+    "bridge:identity-proof": "node scripts/agent-bridge/identity-proof.mjs",
     "test:bridge": "node --test tests/agent-bridge/**/*.test.mjs"
   }
 }
