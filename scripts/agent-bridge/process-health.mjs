@@ -20,9 +20,11 @@ export function classifyBridgeProcesses(snapshot, context = {}) {
   const current = context.currentProcess || { pid: context.currentPid };
   const launchers = Array.isArray(context.launchers) ? context.launchers : [];
   const tracked = Array.isArray(context.trackedChildren) ? context.trackedChildren : [];
+  const ancestorPids = new Set(); let ancestor = processes.find((entry) => entry.pid === Number(current.pid))?.ppid;
+  while (ancestor) { ancestorPids.add(ancestor); ancestor = processes.find((entry) => entry.pid === ancestor)?.ppid; }
   const classified = processes.map((process) => {
     if (Number(current.pid) === process.pid) return { ...process, category: current.startTime != null && process.startTime !== current.startTime ? 'stale_pid_record' : 'current_batch', relation: 'current-run' };
-    const launcher = launchers.find((record) => sameIdentity(process, record));
+    const launcher = launchers.find((record) => sameIdentity(process, record)) || (ancestorPids.has(process.pid) && /^(?:npm|npm\.cmd|node|powershell|cmd)(?:\.exe|\.cmd)?$/i.test(process.name) && /(?:^|\s)bridge:batch(?:\s|$)|cli\.mjs\s+batch/i.test(process.command) ? process : null);
     if (launcher) return { ...process, category: 'verified_launcher', relation: `parent-of-${current.pid}` };
     const child = tracked.find((record) => Number(record.pid) === process.pid);
     if (child) return { ...process, category: sameIdentity(process, child) && (!child.commandIdentity || commandShape(process.command).includes(commandShape(child.commandIdentity))) ? 'tracked_task_child' : 'stale_pid_record', relation: 'tracked-record' };
