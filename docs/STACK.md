@@ -9,16 +9,16 @@
 | Node.js | `22.0.0` | Підтримуємо одну LTS-лінію; рекомендується останній patch Node 22 |
 | npm | `10.5.0` | Єдиний package manager; commit `package-lock.json` |
 | TypeScript | `5.5.0` | `strict: true` |
-| Next.js | `15.0.0` | App Router |
+| Next.js | `16.3.3` | App Router; patched baseline для поточного security graph |
 | React / React DOM | `19.0.0` | Версії мають збігатися |
 | PostgreSQL | `16.0` | Локально й production одна major-версія |
 | Prisma / Prisma Client | `6.0.0` | Версії мають збігатися |
 | Tailwind CSS | `4.0.0` | Без платної UI-бібліотеки |
 | Zod | `3.23.0` | Валідація env, форм і API payload |
-| Vitest | `2.0.0` | Unit та integration tests |
-| Playwright | `1.48.0` | Критичні E2E-сценарії |
+| Vitest | `3.2.6` | Unit та integration tests; мінімальний patched stable release |
+| Playwright | `1.55.1` | Критичні E2E-сценарії; patched release |
 
-У `package.json` потрібно зафіксувати `engines.node: ">=22 <23"` та `engines.npm: ">=10.5 <12"`. Це не означає, що старші версії гарантовано несумісні; це контрольована матриця, яку ми реально перевіряємо.
+У `package.json` потрібно зафіксувати `engines.node: ">=22 <23"` та `engines.npm: ">=10.5 <12"`. ESLint 9.39.5 тимчасово зафіксовано як dev-only compatibility pin для поточного ecosystem Next 16; ESLint 10.9.1 фактично падав із `scopeManager.addGlobals is not a function`. Lint залишається активним і проходить; overrides не використовуються. Аудит показує 0 reported critical/high для поточного графа. ESLint 10 migration рекомендована як окрема майбутня bounded issue. Це не означає, що старші версії гарантовано несумісні; це контрольована матриця, яку ми реально перевіряємо.
 
 ## Мінімальна архітектура
 

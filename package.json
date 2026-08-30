@@ -1,13 +1,40 @@
 {
-  "name": "online-market-agent-bridge",
+  "name": "online-market-storefront",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22 <23",
+    "npm": ">=10.5 <12"
+  },
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
     "bridge:doctor": "node scripts/agent-bridge/doctor.mjs",
     "bridge:once": "node scripts/agent-bridge/cli.mjs once",
     "bridge:batch": "node scripts/agent-bridge/cli.mjs batch",
     "bridge:watch": "node scripts/agent-bridge/cli.mjs watch",
     "bridge:identity-proof": "node scripts/agent-bridge/identity-proof.mjs",
     "test:bridge": "node --test tests/agent-bridge/**/*.test.mjs"
+  },
+  "dependencies": {
+    "next": "16.3.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.1",
+    "@types/node": "22.12.0",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.3",
+    "typescript": "5.7.2",
+    "vitest": "3.2.6"
   }
 }
