@@ -1,11 +1,89 @@
+import type { CSSProperties, ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { getStoreConfig } from "@/modules/store-config";
 
-export const metadata: Metadata = { title: "Storefront Foundation", description: "A reusable storefront foundation." };
+type RootLayoutProps = Readonly<{ children: ReactNode }>;
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const store = getStoreConfig();
-  return <html lang="en"><body><div className="shell"><header className="header"><Link className="brand" href="/">{store.name}</Link><nav className="nav" aria-label="Primary navigation"><a href="#about">About</a><a href="#status">Status</a></nav></header>{children}<footer className="footer">Foundation preview · no real transactions</footer></div></body></html>;
+function createBrandStyle(
+  store: Awaited<ReturnType<typeof getStoreConfig>>["config"],
+): CSSProperties {
+  return {
+    "--store-accent": store.brand.accent,
+    "--store-accent-foreground": store.brand.accentForeground,
+    "--store-surface": store.brand.surface,
+    "--store-surface-foreground": store.brand.surfaceForeground,
+    "--store-muted-surface": store.brand.mutedSurface,
+    "--store-muted-foreground": store.brand.mutedForeground,
+    "--store-border": store.brand.border,
+  } as CSSProperties;
+}
+
+function visibleLinks(store: Awaited<ReturnType<typeof getStoreConfig>>["config"]) {
+  return Object.entries(store.contact.links).filter(
+    (entry): entry is [string, string] => Boolean(entry[1]),
+  );
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { config } = await getStoreConfig();
+
+  return {
+    title: config.identity.name,
+    description: config.identity.description,
+    applicationName: config.identity.shortName,
+  };
+}
+
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const storeResult = await getStoreConfig();
+  const store = storeResult.config;
+  const links = visibleLinks(store);
+
+  return (
+    <html lang={store.locale}>
+      <body style={createBrandStyle(store)}>
+        <div className="shell">
+          <a className="skip-link" href="#main-content">
+            Skip to content
+          </a>
+          <header className="header">
+            <div className="brand-lockup">
+              <Link className="brand" href="/">
+                {store.identity.name}
+              </Link>
+              <p className="brand-copy">{store.identity.description}</p>
+            </div>
+            <nav className="nav" aria-label="Primary navigation">
+              <a href="#about">About</a>
+              <a href="#contact">Contact</a>
+              <a href="#status">Status</a>
+            </nav>
+          </header>
+          {children}
+          <footer className="footer" id="contact">
+            <div>
+              <p className="footer-title">{store.identity.shortName}</p>
+              <p className="footer-copy">{store.identity.description}</p>
+            </div>
+            <div className="footer-contact">
+              <a href={`mailto:${store.contact.email}`}>{store.contact.email}</a>
+              <a href={`tel:${store.contact.phone}`}>{store.contact.phone}</a>
+              {links.map(([label, href]) => (
+                <a key={label} href={href}>
+                  {label}
+                </a>
+              ))}
+            </div>
+            <p className="footer-meta">
+              {store.currency} storefront preview
+              {store.demoMode ? " | demo mode only" : ""}
+              {storeResult.status === "fallback" ? " | safe fallback config" : ""}
+            </p>
+          </footer>
+        </div>
+      </body>
+    </html>
+  );
 }
