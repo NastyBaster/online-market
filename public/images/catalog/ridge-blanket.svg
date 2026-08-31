@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Ridge Blanket</title>
+  <desc id="desc">A folded striped blanket resting on a camp stool.</desc>
+  <rect width="800" height="600" fill="#f2e8da"/>
+  <rect y="430" width="800" height="170" fill="#dcc7aa"/>
+  <rect x="210" y="160" width="380" height="240" rx="22" fill="#d7b37a"/>
+  <rect x="226" y="176" width="348" height="208" rx="18" fill="#e8d5b3"/>
+  <rect x="238" y="190" width="58" height="180" fill="#b65a33"/>
+  <rect x="316" y="190" width="58" height="180" fill="#d39745"/>
+  <rect x="394" y="190" width="58" height="180" fill="#375f66"/>
+  <rect x="472" y="190" width="58" height="180" fill="#b65a33"/>
+  <rect x="550" y="190" width="12" height="180" fill="#d9c3a0"/>
+  <path d="M260 430L218 520" stroke="#6e533e" stroke-width="16" stroke-linecap="round"/>
+  <path d="M540 430L582 520" stroke="#6e533e" stroke-width="16" stroke-linecap="round"/>
+  <path d="M338 430L296 520" stroke="#6e533e" stroke-width="16" stroke-linecap="round"/>
+  <path d="M462 430L504 520" stroke="#6e533e" stroke-width="16" stroke-linecap="round"/>
+</svg>

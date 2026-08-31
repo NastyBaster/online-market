@@ -56,9 +56,9 @@ export default async function RootLayout({ children }: RootLayoutProps) {
               <p className="brand-copy">{store.identity.description}</p>
             </div>
             <nav className="nav" aria-label="Primary navigation">
-              <a href="#about">About</a>
+              <a href="#about">Introduction</a>
+              <a href="#catalog">Catalog</a>
               <a href="#contact">Contact</a>
-              <a href="#status">Status</a>
             </nav>
           </header>
           {children}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Trail Lantern</title>
+  <desc id="desc">A glowing lantern at dusk with a mountain silhouette.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1f3659"/>
+      <stop offset="100%" stop-color="#edb26a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <path d="M0 430L170 300L330 420L470 276L640 410L800 328V600H0Z" fill="#243443"/>
+  <circle cx="400" cy="250" r="86" fill="#ffd89a" opacity="0.35"/>
+  <rect x="332" y="172" width="136" height="238" rx="28" fill="#384957"/>
+  <rect x="362" y="206" width="76" height="126" rx="18" fill="#ffe6b1"/>
+  <path d="M360 172C360 128 440 128 440 172" fill="none" stroke="#384957" stroke-width="18" stroke-linecap="round"/>
+  <rect x="352" y="344" width="96" height="26" rx="10" fill="#222e38"/>
+</svg>
