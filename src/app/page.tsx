@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { formatAvailability, getCatalog } from "@/modules/catalog";
 import { getStoreConfig } from "@/modules/store-config";
 
@@ -72,33 +73,41 @@ export default async function HomePage() {
           <ul className="catalog-grid" aria-label="Demo products">
             {catalogResult.catalog.products.map((product) => (
               <li key={product.id}>
-                <article
-                  className="catalog-card"
-                  tabIndex={0}
+                <Link
+                  className="catalog-card-link"
+                  href={`/products/${product.slug}`}
                   aria-labelledby={`${product.id}-name`}
+                  aria-describedby={`${product.id}-summary ${product.id}-details`}
                 >
-                  <div className="catalog-image-wrap">
-                    <Image
-                      className="catalog-image"
-                      src={product.image.src}
-                      alt={product.image.alt}
-                      width={800}
-                      height={600}
-                      sizes="(min-width: 1040px) 22rem, (min-width: 720px) 30rem, 100vw"
-                    />
-                  </div>
-                  <div className="catalog-card-body">
-                    <p className="catalog-category">{product.category}</p>
-                    <h3 id={`${product.id}-name`}>{product.name}</h3>
-                    <p className="catalog-meta">{product.shortDescription}</p>
-                    <p className="catalog-price">{product.price.display}</p>
-                    <p className="catalog-availability">{formatAvailability(product.availability)}</p>
-                    <p className="catalog-meta">
-                      {product.variants[0]?.optionLabel} | SKU {product.variants[0]?.sku} |{" "}
-                      {product.variants.length} variant{product.variants.length === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                </article>
+                  <article className="catalog-card">
+                    <div className="catalog-image-wrap">
+                      <Image
+                        className="catalog-image"
+                        src={product.image.src}
+                        alt={product.image.alt}
+                        width={800}
+                        height={600}
+                        sizes="(min-width: 1040px) 22rem, (min-width: 720px) 30rem, 100vw"
+                      />
+                    </div>
+                    <div className="catalog-card-body">
+                      <p className="catalog-category">{product.category}</p>
+                      <h3 id={`${product.id}-name`}>{product.name}</h3>
+                      <p className="catalog-meta" id={`${product.id}-summary`}>
+                        {product.shortDescription}
+                      </p>
+                      <p className="catalog-price">{product.price.display}</p>
+                      <p className="catalog-availability">
+                        {formatAvailability(product.availability)}
+                      </p>
+                      <p className="catalog-meta" id={`${product.id}-details`}>
+                        {product.variants[0]?.optionLabel} | SKU {product.variants[0]?.sku} |{" "}
+                        {product.variants.length} variant
+                        {product.variants.length === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                  </article>
+                </Link>
               </li>
             ))}
           </ul>

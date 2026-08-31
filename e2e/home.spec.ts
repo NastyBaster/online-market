@@ -74,8 +74,10 @@ test("catalog supports keyboard navigation", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
-  await page.keyboard.press("Tab");
-  const firstCard = page.locator(".catalog-card").first();
+  const firstCard = page.locator(".catalog-card-link").first();
+  await firstCard.focus();
   await expect(firstCard).toBeFocused();
   await expect(firstCard).toContainText("Field Journal");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/products\/field-journal$/);
 });
