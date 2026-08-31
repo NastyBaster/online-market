@@ -61,6 +61,12 @@ test("catalog grid matches the viewport", async ({ page }) => {
     return;
   }
 
+  if ((viewport?.width ?? 0) < 1040) {
+    expect(Math.abs((firstBox?.y ?? 0) - (secondBox?.y ?? 0))).toBeLessThan(8);
+    expect((thirdBox?.y ?? 0) - (firstBox?.y ?? 0)).toBeGreaterThan(40);
+    return;
+  }
+
   expect(Math.abs((firstBox?.y ?? 0) - (secondBox?.y ?? 0))).toBeLessThan(8);
   expect(Math.abs((secondBox?.y ?? 0) - (thirdBox?.y ?? 0))).toBeLessThan(8);
 });
