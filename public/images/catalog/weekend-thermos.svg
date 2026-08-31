@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Weekend Thermos</title>
+  <desc id="desc">A thermos bottle with enamel cups in a mountain setting.</desc>
+  <rect width="800" height="600" fill="#e9f2ec"/>
+  <rect y="420" width="800" height="180" fill="#c6d7c6"/>
+  <path d="M0 330L160 210L290 330L430 180L610 334L800 230V420H0Z" fill="#7b9c88"/>
+  <rect x="320" y="130" width="160" height="280" rx="42" fill="#476f5a"/>
+  <rect x="346" y="96" width="108" height="64" rx="24" fill="#365744"/>
+  <rect x="352" y="214" width="96" height="16" rx="8" fill="#dfeade"/>
+  <circle cx="216" cy="400" r="54" fill="#fff9ef"/>
+  <circle cx="568" cy="408" r="54" fill="#fff9ef"/>
+  <rect x="176" y="352" width="80" height="22" rx="10" fill="#cb8b4e"/>
+  <rect x="528" y="360" width="80" height="22" rx="10" fill="#cb8b4e"/>
+</svg>

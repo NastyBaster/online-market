@@ -1,13 +1,20 @@
 import { expect, test } from "@playwright/test";
 
-test("home page renders a branded storefront shell with keyboard navigation", async ({ page }) => {
+test("catalog renders six mapped demo products without horizontal overflow", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("banner")).toContainText("Northstar Goods");
   await expect(page).toHaveTitle("Northstar Goods");
-  await expect(page.getByRole("heading", { level: 1, name: "Northstar Goods" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Demo catalog for everyday camp rituals" }),
+  ).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Demo mode: enabled");
   await expect(page.getByRole("contentinfo")).toContainText("hello@northstar-demo.test");
+  await expect(page.getByRole("list", { name: "Demo products" })).toBeVisible();
+  await expect(page.locator(".catalog-card")).toHaveCount(6);
+  await expect(
+    page.getByAltText("Field Journal notebook with a brass pen on a warm desk."),
+  ).toBeVisible();
 
   const overflow = await page.evaluate(() => {
     const viewport = document.documentElement.getBoundingClientRect().width;
@@ -26,6 +33,40 @@ test("home page renders a branded storefront shell with keyboard navigation", as
   });
 
   expect(overflow).toEqual([]);
+});
+
+test("catalog grid matches the viewport", async ({ page }) => {
+  await page.goto("/");
+
+  const firstCard = page.locator(".catalog-card").nth(0);
+  const secondCard = page.locator(".catalog-card").nth(1);
+  const thirdCard = page.locator(".catalog-card").nth(2);
+
+  const [firstBox, secondBox, thirdBox] = await Promise.all([
+    firstCard.boundingBox(),
+    secondCard.boundingBox(),
+    thirdCard.boundingBox(),
+  ]);
+
+  expect(firstBox).not.toBeNull();
+  expect(secondBox).not.toBeNull();
+  expect(thirdBox).not.toBeNull();
+
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+
+  if ((viewport?.width ?? 0) < 720) {
+    expect(Math.abs((firstBox?.x ?? 0) - (secondBox?.x ?? 0))).toBeLessThan(8);
+    expect((secondBox?.y ?? 0) - (firstBox?.y ?? 0)).toBeGreaterThan(40);
+    return;
+  }
+
+  expect(Math.abs((firstBox?.y ?? 0) - (secondBox?.y ?? 0))).toBeLessThan(8);
+  expect(Math.abs((secondBox?.y ?? 0) - (thirdBox?.y ?? 0))).toBeLessThan(8);
+});
+
+test("catalog supports keyboard navigation", async ({ page }) => {
+  await page.goto("/");
 
   const skipLink = page.getByRole("link", { name: "Skip to content" });
   await skipLink.focus();
@@ -33,6 +74,8 @@ test("home page renders a branded storefront shell with keyboard navigation", as
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
-  await page.getByRole("link", { name: "Northstar Goods" }).focus();
-  await expect(page.getByRole("link", { name: "Northstar Goods" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  const firstCard = page.locator(".catalog-card").first();
+  await expect(firstCard).toBeFocused();
+  await expect(firstCard).toContainText("Field Journal");
 });

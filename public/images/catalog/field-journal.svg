@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Field Journal</title>
+  <desc id="desc">A notebook and pen styled as an outdoor field journal.</desc>
+  <rect width="800" height="600" fill="#f5efe3"/>
+  <rect x="116" y="84" width="568" height="432" rx="28" fill="#d1a873"/>
+  <rect x="160" y="116" width="360" height="368" rx="18" fill="#fffaf0"/>
+  <rect x="520" y="116" width="120" height="368" rx="18" fill="#b87a47"/>
+  <rect x="188" y="164" width="304" height="12" rx="6" fill="#d7c7aa"/>
+  <rect x="188" y="214" width="264" height="12" rx="6" fill="#d7c7aa"/>
+  <rect x="188" y="264" width="286" height="12" rx="6" fill="#d7c7aa"/>
+  <rect x="188" y="314" width="250" height="12" rx="6" fill="#d7c7aa"/>
+  <rect x="188" y="364" width="274" height="12" rx="6" fill="#d7c7aa"/>
+  <g transform="rotate(-24 618 246)">
+    <rect x="592" y="152" width="30" height="204" rx="12" fill="#77523b"/>
+    <rect x="592" y="132" width="30" height="38" rx="10" fill="#c59a4c"/>
+    <polygon points="607,356 591,394 623,394" fill="#3d2b1f"/>
+  </g>
+</svg>

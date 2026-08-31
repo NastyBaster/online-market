@@ -112,7 +112,7 @@ a {
   padding: 3.5rem 0 4rem;
 }
 
-.hero {
+.catalog-intro {
   max-width: 54rem;
 }
 
@@ -128,26 +128,29 @@ a {
   text-transform: uppercase;
 }
 
-.hero h1 {
+.catalog-intro h1 {
   font-size: clamp(2.5rem, 8vw, 5rem);
   line-height: 0.98;
   margin: 1rem 0 1.25rem;
 }
 
-.hero p,
-.hero-card p {
+.catalog-intro p,
+.catalog-note p,
+.catalog-empty p,
+.catalog-meta {
   font-size: 1.08rem;
   line-height: 1.7;
 }
 
-.hero-grid {
+.catalog-callouts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 2rem;
 }
 
-.hero-card,
+.catalog-note,
+.catalog-card,
 .footer {
   border: 1px solid var(--store-border, #d9dee8);
   background: color-mix(in srgb, var(--store-surface, #f8fafc) 90%, white);
@@ -159,15 +162,33 @@ a {
   overflow-wrap: anywhere;
 }
 
-.hero-card {
+.catalog-note {
   padding: 1.25rem;
   border-radius: 1.25rem;
 }
 
-.hero-card h2,
+.catalog-note h2,
 .footer-title {
   margin: 0 0 0.75rem;
   font-size: 1rem;
+}
+
+.catalog-section {
+  margin-top: 3rem;
+}
+
+.catalog-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1.5rem;
+}
+
+.catalog-header h2,
+.catalog-empty h3,
+.catalog-card h3 {
+  margin: 0.65rem 0 0;
 }
 
 .status-row {
@@ -175,7 +196,6 @@ a {
   flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
-  margin-top: 1.5rem;
 }
 
 .status {
@@ -185,6 +205,112 @@ a {
   background: var(--store-accent, #0f766e);
   color: var(--store-accent-foreground, #f8fafc);
   font-weight: 700;
+}
+
+.catalog-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.catalog-grid li {
+  min-width: 0;
+}
+
+.catalog-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  border-radius: 1.5rem;
+  overflow: hidden;
+}
+
+.catalog-card:focus-visible {
+  outline: 3px solid var(--store-accent, #0f766e);
+  outline-offset: 3px;
+}
+
+.catalog-image-wrap {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--store-muted-surface, #d9f2ef) 72%, white);
+}
+
+.catalog-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.catalog-card-body,
+.catalog-empty {
+  padding: 1.2rem;
+}
+
+.catalog-category,
+.catalog-availability,
+.catalog-price,
+.catalog-meta {
+  margin: 0.35rem 0 0;
+}
+
+.catalog-category {
+  color: var(--store-muted-foreground, #526076);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.catalog-price {
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+.catalog-availability {
+  color: var(--store-muted-foreground, #526076);
+  font-weight: 700;
+}
+
+.catalog-meta {
+  color: var(--store-muted-foreground, #526076);
+  font-size: 0.95rem;
+}
+
+.catalog-empty {
+  border-radius: 1.5rem;
+  border: 1px dashed var(--store-border, #d9dee8);
+  background: color-mix(in srgb, var(--store-surface, #f8fafc) 80%, white);
+}
+
+.catalog-card-skeleton {
+  overflow: hidden;
+}
+
+.skeleton-block,
+.skeleton-line {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--store-muted-surface, #d9f2ef) 80%, white) 0%,
+    color-mix(in srgb, var(--store-border, #94d2cb) 40%, white) 50%,
+    color-mix(in srgb, var(--store-muted-surface, #d9f2ef) 80%, white) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 1rem;
+}
+
+.skeleton-line {
+  height: 0.9rem;
+  margin-top: 0.85rem;
+}
+
+.skeleton-line-short {
+  width: 55%;
 }
 
 .footer {
@@ -222,7 +348,7 @@ a {
   }
 
   .footer,
-  .hero-grid {
+  .catalog-callouts {
     grid-template-columns: 1fr;
   }
 
@@ -241,5 +367,34 @@ a {
 
   .main {
     padding: 2.5rem 0 3rem;
+  }
+}
+
+@media (min-width: 720px) {
+  .catalog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1040px) {
+  .catalog-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 840px) {
+  .catalog-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
   }
 }

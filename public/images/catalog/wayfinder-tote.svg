@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Wayfinder Tote</title>
+  <desc id="desc">A canvas tote bag with a compass badge.</desc>
+  <rect width="800" height="600" fill="#f5f0e6"/>
+  <rect y="420" width="800" height="180" fill="#e2d6c2"/>
+  <path d="M220 184C220 112 580 112 580 184" fill="none" stroke="#87664d" stroke-width="24" stroke-linecap="round"/>
+  <path d="M238 194H562L520 458H280Z" fill="#c78c58"/>
+  <path d="M268 224H532L500 430H300Z" fill="#efd8b0"/>
+  <circle cx="400" cy="320" r="64" fill="#3f6f7b"/>
+  <path d="M400 270L418 320L400 370L382 320Z" fill="#fff7e7"/>
+  <path d="M350 320L400 338L450 320L400 302Z" fill="#fff7e7"/>
+</svg>

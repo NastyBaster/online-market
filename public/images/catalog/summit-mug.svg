@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Summit Mug</title>
+  <desc id="desc">An enamel mug with sunrise steam and horizon lines.</desc>
+  <rect width="800" height="600" fill="#eef2f3"/>
+  <rect y="422" width="800" height="178" fill="#d7dde1"/>
+  <circle cx="456" cy="214" r="74" fill="#f1b56a"/>
+  <path d="M160 408C256 334 344 318 430 348C514 376 604 376 684 314V422H160Z" fill="#6f8896"/>
+  <rect x="246" y="208" width="248" height="180" rx="28" fill="#fffdf8"/>
+  <path d="M494 240H540C578 240 608 270 608 308C608 346 578 376 540 376H494" fill="none" stroke="#fffdf8" stroke-width="24"/>
+  <path d="M320 180C300 144 330 116 320 92" fill="none" stroke="#b4c5ca" stroke-width="12" stroke-linecap="round"/>
+  <path d="M382 176C362 140 392 112 382 88" fill="none" stroke="#b4c5ca" stroke-width="12" stroke-linecap="round"/>
+  <path d="M444 180C424 144 454 116 444 92" fill="none" stroke="#b4c5ca" stroke-width="12" stroke-linecap="round"/>
+</svg>
