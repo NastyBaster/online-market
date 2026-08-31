@@ -109,6 +109,24 @@ export async function loadCatalog(
 
 export const getCatalog = cache(async () => loadCatalog());
 
+export async function getCatalogProductBySlug(slug: string): Promise<Product | null> {
+  const normalizedSlug = slug.trim();
+
+  if (!normalizedSlug) {
+    return null;
+  }
+
+  const result = await getCatalog();
+
+  return result.catalog.products.find((product) => product.slug === normalizedSlug) ?? null;
+}
+
+export async function getCatalogProductSlugs(): Promise<string[]> {
+  const result = await getCatalog();
+
+  return result.catalog.products.map((product) => product.slug);
+}
+
 export function formatAvailability(availability: ProductAvailability): string {
   switch (availability) {
     case "inStock":

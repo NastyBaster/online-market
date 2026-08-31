@@ -5,6 +5,8 @@ import {
   deriveVariantAvailability,
   formatAvailability,
   formatPrice,
+  getCatalogProductBySlug,
+  getCatalogProductSlugs,
   loadCatalog,
 } from "@/modules/catalog";
 
@@ -93,6 +95,30 @@ describe("catalog domain", () => {
 
     expect(result.catalog.products[1]?.availability).toBe("lowStock");
     expect(result.catalog.products[3]?.availability).toBe("soldOut");
+  });
+
+  it("looks up a mapped product by slug", async () => {
+    const product = await getCatalogProductBySlug("ridge-blanket");
+
+    expect(product).not.toBeNull();
+    expect(product?.name).toBe("Ridge Blanket");
+    expect(product?.price.display).toBe("$72.00");
+    expect(product?.availability).toBe("soldOut");
+    expect(product?.variants[0]?.sku).toBe("NSG-BLANKET-001");
+  });
+
+  it("returns null for an unknown or empty product slug", async () => {
+    await expect(getCatalogProductBySlug("unknown-product")).resolves.toBeNull();
+    await expect(getCatalogProductBySlug("   ")).resolves.toBeNull();
+  });
+
+  it("returns six unique static product slugs", async () => {
+    const slugs = await getCatalogProductSlugs();
+
+    expect(slugs).toHaveLength(6);
+    expect(new Set(slugs).size).toBe(6);
+    expect(slugs).toContain("field-journal");
+    expect(slugs).toContain("ridge-blanket");
   });
 
   it("rejects duplicate SKUs across products", async () => {
