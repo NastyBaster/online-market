@@ -15,6 +15,8 @@ type ProductPageProps = {
   }>;
 };
 
+export const dynamicParams = false;
+
 function availabilityClassName(availability: "inStock" | "lowStock" | "soldOut"): string {
   switch (availability) {
     case "inStock":

@@ -4,19 +4,22 @@ async function warmProductRoute(
   page: Parameters<typeof test>[0]["page"],
   path: string,
   marker: string,
+  expectedStatus = 200,
 ) {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
     const response = await page.request.get(path);
     const body = await response.text();
 
-    if (body.includes(marker)) {
+    if (response.status() === expectedStatus && body.includes(marker)) {
       return;
     }
 
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
   }
 
-  throw new Error(`Route ${path} did not render expected marker: ${marker}`);
+  throw new Error(
+    `Route ${path} did not render expected marker ${marker} with status ${expectedStatus}`,
+  );
 }
 
 test("catalog cards link to product details pages", async ({ page }) => {
@@ -78,10 +81,33 @@ test("sold-out product details show a non-interactive sold-out state", async ({ 
 });
 
 test("unknown product slug returns the route not-found state", async ({ page }) => {
-  await warmProductRoute(page, "/products/not-a-real-product", "Demo product not found");
+  await warmProductRoute(page, "/products/not-a-real-product", "Page not found", 404);
+  const response = await page.request.get("/products/not-a-real-product");
+  const body = await response.text();
+
+  expect(response.status()).toBe(404);
+  expect(body).toContain("Page not found");
+  expect(body).toContain("Return to storefront");
+  expect(body).not.toContain("Demo product not found");
   await page.goto("/products/not-a-real-product");
-  await expect(page.getByRole("heading", { level: 1, name: "Demo product not found" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Return to catalog" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Return to storefront" })).toBeVisible();
+  await expect(page.getByText("Demo product not found")).toHaveCount(0);
+});
+
+test("unknown generic route returns the root not-found state", async ({ page }) => {
+  await warmProductRoute(page, "/some-completely-unknown-page", "Page not found", 404);
+  const response = await page.request.get("/some-completely-unknown-page");
+  const body = await response.text();
+
+  expect(response.status()).toBe(404);
+  expect(body).toContain("Page not found");
+  expect(body).toContain("Return to storefront");
+  expect(body).not.toContain("Demo product not found");
+  await page.goto("/some-completely-unknown-page");
+  await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Return to storefront" })).toBeVisible();
+  await expect(page.getByText("Demo product not found")).toHaveCount(0);
 });
 
 test("product details avoid horizontal overflow on mobile", async ({ page }) => {

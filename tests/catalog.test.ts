@@ -115,10 +115,14 @@ describe("catalog domain", () => {
   it("returns six unique static product slugs", async () => {
     const slugs = await getCatalogProductSlugs();
 
-    expect(slugs).toHaveLength(6);
-    expect(new Set(slugs).size).toBe(6);
-    expect(slugs).toContain("field-journal");
-    expect(slugs).toContain("ridge-blanket");
+    expect(slugs).toEqual([
+      "field-journal",
+      "weekend-thermos",
+      "trail-lantern",
+      "ridge-blanket",
+      "wayfinder-tote",
+      "summit-mug",
+    ]);
   });
 
   it("rejects duplicate SKUs across products", async () => {
