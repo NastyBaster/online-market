@@ -1,8 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import "./globals.css";
+import { getCatalog } from "@/modules/catalog";
+import { resolveCart } from "@/modules/cart";
 import { getStoreConfig } from "@/modules/store-config";
+import { decodeCartCookie } from "@/providers/cart";
 
 type RootLayoutProps = Readonly<{ children: ReactNode }>;
 
@@ -37,9 +41,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: RootLayoutProps) {
-  const storeResult = await getStoreConfig();
+  const [storeResult, catalogResult, cookieStore] = await Promise.all([
+    getStoreConfig(),
+    getCatalog(),
+    cookies(),
+  ]);
   const store = storeResult.config;
   const links = visibleLinks(store);
+  const cart = resolveCart(
+    decodeCartCookie(cookieStore.get("cart")?.value),
+    catalogResult.catalog,
+  );
+  const cartLabel = `Cart (${cart.itemCount})`;
 
   return (
     <html lang={store.locale}>
@@ -58,6 +71,9 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             <nav className="nav" aria-label="Primary navigation">
               <a href="#about">Introduction</a>
               <a href="#catalog">Catalog</a>
+              <Link aria-label={cartLabel} href="/cart">
+                {cartLabel}
+              </Link>
               <a href="#contact">Contact</a>
             </nav>
           </header>

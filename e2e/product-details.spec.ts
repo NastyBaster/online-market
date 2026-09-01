@@ -54,6 +54,7 @@ test("product details render mapped data and keyboard back navigation", async ({
   await expect(page.getByText("Clay Cover")).toBeVisible();
   await expect(page.getByText("NSG-JOURNAL-001")).toBeVisible();
   await expect(page.locator(".availability-pill")).toHaveText("In stock");
+  await expect(page.getByRole("button", { name: "Add to cart" })).toBeVisible();
 
   const backLink = page.getByRole("link", { name: "Back to catalog" });
   await backLink.focus();
@@ -75,9 +76,8 @@ test("sold-out product details show a non-interactive sold-out state", async ({ 
   await expect(
     page.getByText("This demo product is currently sold out."),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /add to cart/i }),
-  ).toHaveCount(0);
+  await expect(page.getByText("Sold-out variants cannot be added to the cart.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /add to cart/i })).toHaveCount(0);
 });
 
 test("unknown product slug returns the route not-found state", async ({ page }) => {

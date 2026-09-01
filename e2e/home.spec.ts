@@ -4,6 +4,7 @@ test("catalog renders six mapped demo products without horizontal overflow", asy
   await page.goto("/");
 
   await expect(page.getByRole("banner")).toContainText("Northstar Goods");
+  await expect(page.getByRole("link", { name: "Cart (0)" })).toBeVisible();
   await expect(page).toHaveTitle("Northstar Goods");
   await expect(
     page.getByRole("heading", { level: 1, name: "Demo catalog for everyday camp rituals" }),
