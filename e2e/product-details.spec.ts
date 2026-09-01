@@ -81,14 +81,33 @@ test("sold-out product details show a non-interactive sold-out state", async ({ 
 });
 
 test("unknown product slug returns the route not-found state", async ({ page }) => {
-  await warmProductRoute(page, "/products/not-a-real-product", "Demo product not found", 404);
+  await warmProductRoute(page, "/products/not-a-real-product", "Page not found", 404);
   const response = await page.request.get("/products/not-a-real-product");
+  const body = await response.text();
 
   expect(response.status()).toBe(404);
-  expect(await response.text()).toContain("Demo product not found");
+  expect(body).toContain("Page not found");
+  expect(body).toContain("Return to storefront");
+  expect(body).not.toContain("Demo product not found");
   await page.goto("/products/not-a-real-product");
-  await expect(page.getByRole("heading", { level: 1, name: "Demo product not found" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Return to catalog" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Return to storefront" })).toBeVisible();
+  await expect(page.getByText("Demo product not found")).toHaveCount(0);
+});
+
+test("unknown generic route returns the root not-found state", async ({ page }) => {
+  await warmProductRoute(page, "/some-completely-unknown-page", "Page not found", 404);
+  const response = await page.request.get("/some-completely-unknown-page");
+  const body = await response.text();
+
+  expect(response.status()).toBe(404);
+  expect(body).toContain("Page not found");
+  expect(body).toContain("Return to storefront");
+  expect(body).not.toContain("Demo product not found");
+  await page.goto("/some-completely-unknown-page");
+  await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Return to storefront" })).toBeVisible();
+  await expect(page.getByText("Demo product not found")).toHaveCount(0);
 });
 
 test("product details avoid horizontal overflow on mobile", async ({ page }) => {
