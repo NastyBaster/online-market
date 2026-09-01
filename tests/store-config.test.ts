@@ -3,7 +3,7 @@ import { DemoStoreConfigProvider } from "@/providers/store-config";
 import { fallbackStoreConfig, loadStoreConfig } from "@/modules/store-config";
 
 describe("store configuration", () => {
-  it("loads typed demo config through the provider boundary", async () => {
+  it("loads typed demo config and exposes the configured short name through the provider boundary", async () => {
     const result = await loadStoreConfig(
       new DemoStoreConfigProvider({
         DEMO_MODE: "false",
@@ -19,6 +19,7 @@ describe("store configuration", () => {
       }),
     );
 
+    expect(result.config.identity.shortName).toBe("Demo");
     expect(result).toEqual({
       source: "demo",
       status: "ready",
