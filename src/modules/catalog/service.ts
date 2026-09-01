@@ -127,6 +127,29 @@ export async function getCatalogProductSlugs(): Promise<string[]> {
   return result.catalog.products.map((product) => product.slug);
 }
 
+export async function getCatalogVariantById(variantId: string) {
+  const normalizedVariantId = variantId.trim();
+
+  if (!normalizedVariantId) {
+    return null;
+  }
+
+  const result = await getCatalog();
+
+  for (const product of result.catalog.products) {
+    const variant = product.variants.find((entry) => entry.id === normalizedVariantId);
+
+    if (variant) {
+      return {
+        product,
+        variant,
+      };
+    }
+  }
+
+  return null;
+}
+
 export function formatAvailability(availability: ProductAvailability): string {
   switch (availability) {
     case "inStock":

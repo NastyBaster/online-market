@@ -4,7 +4,7 @@
 
 The runnable application uses Node.js 22 and npm 10.5+ (see `.nvmrc`). Install dependencies from the lockfile with `npm ci`, then start the local app with `npm run dev` and open `http://localhost:3000`.
 
-The foundation runs in demo mode by default. Copy `.env.example` to `.env.local` to change `DEMO_MODE` or the non-secret store name. Demo mode is local-only and does not call payment, delivery, or other paid services.
+The foundation runs in demo mode by default. Copy `.env.example` to `.env.local` to change `DEMO_MODE` or the non-secret store name. The anonymous cart reads `CART_COOKIE_SECRET` when configured and otherwise falls back to a process-local non-production key so local development and CI can exercise the cart without storing a real secret in the repository. Demo mode is local-only and does not call payment, delivery, or other paid services.
 
 Quality checks:
 

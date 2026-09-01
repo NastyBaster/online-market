@@ -7,12 +7,14 @@ import {
   getCatalogProductBySlug,
   getCatalogProductSlugs,
 } from "@/modules/catalog";
+import { getCartStatusMessage } from "@/modules/cart";
 import { getStoreConfig } from "@/modules/store-config";
 
 type ProductPageProps = {
   params: Promise<{
     slug: string;
   }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export const dynamicParams = false;
@@ -57,8 +59,11 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   };
 }
 
-export default async function ProductDetailsPage({ params }: ProductPageProps) {
-  const { slug } = await params;
+export default async function ProductDetailsPage({
+  params,
+  searchParams,
+}: ProductPageProps) {
+  const [{ slug }, currentSearchParams] = await Promise.all([params, searchParams]);
   const product = await getCatalogProductBySlug(slug);
 
   if (!product) {
@@ -66,6 +71,10 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
   }
 
   const variant = product.variants[0];
+  const cartStatus = currentSearchParams.cartStatus;
+  const status = getCartStatusMessage(
+    Array.isArray(cartStatus) ? cartStatus[0] ?? null : cartStatus ?? null,
+  );
 
   return (
     <main className="main" id="main-content" tabIndex={-1}>
@@ -95,6 +104,11 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
             <p className={availabilityClassName(product.availability)}>
               {formatAvailability(product.availability)}
             </p>
+            {status ? (
+              <p className="cart-status-banner" role="status">
+                {status}
+              </p>
+            ) : null}
             <dl className="product-facts">
               <div>
                 <dt>Variant</dt>
@@ -121,6 +135,19 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
                 Availability is derived server-side from the mapped variant inventory.
               </p>
             </section>
+            {variant && product.availability !== "soldOut" ? (
+              <form action="/cart/add" className="cart-add-form" method="post">
+                <input type="hidden" name="variantId" value={variant.id} />
+                <input type="hidden" name="redirectTo" value={`/products/${product.slug}`} />
+                <button className="cart-primary-button" type="submit">
+                  Add to cart
+                </button>
+              </form>
+            ) : (
+              <p className="product-availability-note" role="status">
+                Sold-out variants cannot be added to the cart.
+              </p>
+            )}
           </article>
         </div>
       </section>

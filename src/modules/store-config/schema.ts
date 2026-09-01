@@ -65,6 +65,18 @@ const maybeSocialLinkSchema = z.preprocess(
   socialLinkSchema.optional(),
 );
 
+const maybeSecretSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  },
+  z.string().trim().min(32).optional(),
+);
+
 export const storeConfigInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
   shortName: z.string().trim().min(1).max(24),
@@ -105,6 +117,11 @@ export const environmentSchema = z.object({
   NEXT_PUBLIC_STORE_INSTAGRAM_URL: z.string().optional(),
   NEXT_PUBLIC_STORE_FACEBOOK_URL: z.string().optional(),
   NEXT_PUBLIC_STORE_BRAND_PRESET: z.enum(supportedColorTokens).default("teal"),
+  CART_COOKIE_SECRET: maybeSecretSchema,
+});
+
+export const cartEnvironmentSchema = environmentSchema.pick({
+  CART_COOKIE_SECRET: true,
 });
 
 export function expandBrandPreset(preset: StoreBrandPreset): StoreBrandPalette {
